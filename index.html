@@ -72,8 +72,19 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .bar-col .bar-label{font-size:10px;color:var(--text-muted);font-weight:600;position:absolute;bottom:-24px;white-space:nowrap}
 .bar-col .bar-value{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text-secondary);white-space:nowrap}
 .rfm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.rfm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;position:relative;overflow:hidden;transition:all 0.2s;box-shadow:var(--shadow-sm)}
+.rfm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;position:relative;transition:all 0.2s;box-shadow:var(--shadow-sm);cursor:default}
 .rfm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.rfm-card:hover .rfm-tooltip{display:block}
+.rfm-tooltip{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--border);border-radius:14px;padding:16px;width:300px;z-index:200;box-shadow:var(--shadow-lg);pointer-events:none;margin-top:12px;text-align:left}
+.rfm-tooltip::before{content:'';position:absolute;left:50%;top:-8px;transform:translateX(-50%) rotate(45deg);width:14px;height:14px;background:var(--card);border-left:2px solid var(--border);border-top:2px solid var(--border)}
+.rtt-edge-l{left:0;transform:none;border-color:var(--green)}
+.rtt-edge-l::before{left:30px;transform:rotate(45deg);border-color:var(--green)}
+.rtt-prestes{border-color:var(--yellow)}
+.rtt-prestes::before{border-color:var(--yellow)}
+.rtt-hiber{border-color:var(--orange)}
+.rtt-hiber::before{border-color:var(--orange)}
+.rtt-edge-r{left:auto;right:0;transform:none;border-color:var(--red-primary)}
+.rtt-edge-r::before{left:auto;right:30px;transform:rotate(45deg);border-color:var(--red-primary)}
 .rfm-icon{font-size:28px;margin-bottom:6px}
 .rfm-count{font-family:'Space Mono',monospace;font-size:28px;font-weight:800;margin-bottom:4px}
 .rfm-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
@@ -468,10 +479,17 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
     const arr = rfm[k];
     return arr.length > 0 ? Math.round(arr.reduce((s,c)=>s+c.dias,0)/arr.length*10)/10 : 0;
   };
-  const prestesPorVend = {};
-  rfm.prestes.forEach(c => { prestesPorVend[c.vendedor] = (prestesPorVend[c.vendedor]||0)+1; });
-  const perdidosPorVend = {};
-  rfm.perdidos.forEach(c => { perdidosPorVend[c.vendedor] = (perdidosPorVend[c.vendedor]||0)+1; });
+  const countVend = arr => {
+    const map = {};
+    arr.forEach(c => { map[c.vendedor] = (map[c.vendedor]||0)+1; });
+    return map;
+  };
+  const rfmVend = {
+    ativos: countVend(rfm.ativos),
+    prestes: countVend(rfm.prestes),
+    hibernando: countVend(rfm.hibernando),
+    perdidos: countVend(rfm.perdidos)
+  };
 
   // ---- FAT DIÁRIO ----
   const fatDiario = {};
@@ -530,7 +548,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
       vendaDiariaNecessaria, diasUteisPassed, diasRestantes},
     fatEnt, metasTotal, fatDiario, rfm,
     rfmRecencia: {ativos:rfmRecencia('ativos'),prestes:rfmRecencia('prestes'),hibernando:rfmRecencia('hibernando'),perdidos:rfmRecencia('perdidos')},
-    prestesPorVend, perdidosPorVend, orphans, vendorList, abcData: finalAbcData
+    rfmVend, orphans, vendorList, abcData: finalAbcData
   };
 }
 
@@ -565,19 +583,33 @@ function renderDashboard(D) {
     document.getElementById('orphanSection').innerHTML = '';
   }
 
-  // RFM
-  const R = D.rfm; const RR = D.rfmRecencia; const total = Math.max(K.carteiraTotal,1);
+  const formatVend = (map, color) => {
+    const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+    if (entries.length === 0) return '<div style="font-size:12px;color:var(--text-muted)">Nenhum cliente</div>';
+    return entries.map(([v,n])=>`<div><strong style="color:${color}">${n}</strong> ${v}</div>`).join('');
+  };
+  
+  const RV = D.rfmVend;
+  
   document.getElementById('rfmSection').innerHTML = `
     <div class="section-title">Matriz de Clientes — Ciclo de Vida</div>
     <div class="rfm-grid">
-      <div class="rfm-card animated" style="border-color:var(--green)"><div class="rfm-bar" style="background:var(--green)"></div><div class="rfm-icon">🟢</div><div class="rfm-count" style="color:var(--green)">${R.ativos.length}</div><div class="rfm-label">Ativos</div><div class="rfm-desc">Últimos 20 dias</div><div class="rfm-pct" style="color:var(--green)">${(R.ativos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.ativos} dias</strong></div></div>
-      <div class="rfm-card animated" style="border-color:var(--yellow)"><div class="rfm-bar" style="background:var(--yellow)"></div><div class="rfm-icon">🟡</div><div class="rfm-count" style="color:var(--yellow)">${R.prestes.length}</div><div class="rfm-label">Prestes a Hibernar</div><div class="rfm-desc">21–35 dias</div><div class="rfm-pct" style="color:var(--yellow)">${(R.prestes.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.prestes} dias</strong></div></div>
-      <div class="rfm-card animated" style="border-color:var(--orange)"><div class="rfm-bar" style="background:var(--orange)"></div><div class="rfm-icon">🟠</div><div class="rfm-count" style="color:var(--orange)">${R.hibernando.length}</div><div class="rfm-label">Hibernando</div><div class="rfm-desc">36–60 dias</div><div class="rfm-pct" style="color:var(--orange)">${(R.hibernando.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.hibernando} dias</strong></div></div>
-      <div class="rfm-card animated" style="border-color:var(--red-primary)"><div class="rfm-bar" style="background:var(--red-primary)"></div><div class="rfm-icon">🔴</div><div class="rfm-count" style="color:var(--red-primary)">${R.perdidos.length}</div><div class="rfm-label">Perdidos</div><div class="rfm-desc">60+ dias</div><div class="rfm-pct" style="color:var(--red-primary)">${(R.perdidos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.perdidos} dias</strong></div></div>
-    </div>
-    <div class="meta-section">
-      <div class="meta-card"><div class="meta-header"><div class="meta-title">🟡 Prestes a Hibernar — Por Vendedor</div></div><div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${Object.entries(D.prestesPorVend).map(([v,n])=>`${v} (${n})`).join(' · ')||'Nenhum'}</div></div>
-      <div class="meta-card"><div class="meta-header"><div class="meta-title">🔴 Perdidos — Por Vendedor</div></div><div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${Object.entries(D.perdidosPorVend).map(([v,n])=>`${v} (${n})`).join(' · ')||'Nenhum'}</div></div>
+      <div class="rfm-card animated" style="border-color:var(--green)">
+        <div class="rfm-bar" style="background:var(--green)"></div><div class="rfm-icon">🟢</div><div class="rfm-count" style="color:var(--green)">${R.ativos.length}</div><div class="rfm-label">Ativos</div><div class="rfm-desc">Últimos 20 dias</div><div class="rfm-pct" style="color:var(--green)">${(R.ativos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.ativos} dias</strong></div>
+        <div class="rfm-tooltip rtt-edge-l"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--green);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Ativos</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.ativos,'var(--green)')}</div></div>
+      </div>
+      <div class="rfm-card animated" style="border-color:var(--yellow)">
+        <div class="rfm-bar" style="background:var(--yellow)"></div><div class="rfm-icon">🟡</div><div class="rfm-count" style="color:var(--yellow)">${R.prestes.length}</div><div class="rfm-label">Prestes a Hibernar</div><div class="rfm-desc">21–35 dias</div><div class="rfm-pct" style="color:var(--yellow)">${(R.prestes.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.prestes} dias</strong></div>
+        <div class="rfm-tooltip rtt-prestes"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--yellow);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Prestes a Hibernar</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.prestes,'var(--yellow)')}</div></div>
+      </div>
+      <div class="rfm-card animated" style="border-color:var(--orange)">
+        <div class="rfm-bar" style="background:var(--orange)"></div><div class="rfm-icon">🟠</div><div class="rfm-count" style="color:var(--orange)">${R.hibernando.length}</div><div class="rfm-label">Hibernando</div><div class="rfm-desc">36–60 dias</div><div class="rfm-pct" style="color:var(--orange)">${(R.hibernando.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.hibernando} dias</strong></div>
+        <div class="rfm-tooltip rtt-hiber"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--orange);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Hibernando</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.hibernando,'var(--orange)')}</div></div>
+      </div>
+      <div class="rfm-card animated" style="border-color:var(--red-primary)">
+        <div class="rfm-bar" style="background:var(--red-primary)"></div><div class="rfm-icon">🔴</div><div class="rfm-count" style="color:var(--red-primary)">${R.perdidos.length}</div><div class="rfm-label">Perdidos</div><div class="rfm-desc">60+ dias</div><div class="rfm-pct" style="color:var(--red-primary)">${(R.perdidos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.perdidos} dias</strong></div>
+        <div class="rfm-tooltip rtt-edge-r"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--red-primary);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Perdidos</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.perdidos,'var(--red-primary)')}</div></div>
+      </div>
     </div>`;
 
   // METAS POR ENTREPOSTO
