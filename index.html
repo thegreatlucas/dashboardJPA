@@ -383,17 +383,18 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
   // ---- ABC ----
   // Cada aba: linha 0 = nome do entreposto (header), linha 1 = "Produto | Peso Entregue", linhas seguintes = dados
   const abcData = {};
+  const globalProdsMap = {};
   for (const [sheetName, raw] of Object.entries(abcRawMap)) {
     const prods = [];
-    // Pula as 2 primeiras linhas (header do entreposto + header de colunas)
     for (let i = 2; i < raw.length; i++) {
       const r = raw[i];
       const produto = (r[0]||'').trim();
       const kg = parseFloat(String(r[1]||'').replace(',','.')) || 0;
       if (!produto || !kg) continue;
       prods.push({ produto: produto.substring(0,60), kg });
+      if (!globalProdsMap[produto]) globalProdsMap[produto] = 0;
+      globalProdsMap[produto] += kg;
     }
-    // Ordena por kg desc (já deve vir ordenado, mas garantindo)
     prods.sort((a,b) => b.kg - a.kg);
     const total = prods.reduce((s,p) => s+p.kg, 0);
     let cum = 0;
@@ -410,6 +411,27 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
       c: prods.filter(p=>p.curva==='C').length
     };
   }
+
+  const todosProds = Object.entries(globalProdsMap).map(([produto, kg]) => ({produto, kg}));
+  todosProds.sort((a,b) => b.kg - a.kg);
+  const totalTodos = todosProds.reduce((s,p) => s+p.kg, 0);
+  let cumTodos = 0;
+  todosProds.forEach(p => {
+    cumTodos += p.kg;
+    p.pctAcum = totalTodos > 0 ? Math.round(cumTodos/totalTodos*1000)/10 : 0;
+    p.pctInd  = totalTodos > 0 ? Math.round(p.kg/totalTodos*1000)/10 : 0;
+    p.curva   = p.pctAcum <= 80 ? 'A' : p.pctAcum <= 95 ? 'B' : 'C';
+  });
+  
+  const finalAbcData = {
+    'TODOS': {
+      products: todosProds, totalKg: totalTodos,
+      a: todosProds.filter(p=>p.curva==='A').length,
+      b: todosProds.filter(p=>p.curva==='B').length,
+      c: todosProds.filter(p=>p.curva==='C').length
+    },
+    ...abcData
+  };
 
   // ---- KPIs GERAIS ----
   const totalFat = pedidos.reduce((s,p)=>s+p.valor, 0);
@@ -508,7 +530,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
       vendaDiariaNecessaria, diasUteisPassed, diasRestantes},
     fatEnt, metasTotal, fatDiario, rfm,
     rfmRecencia: {ativos:rfmRecencia('ativos'),prestes:rfmRecencia('prestes'),hibernando:rfmRecencia('hibernando'),perdidos:rfmRecencia('perdidos')},
-    prestesPorVend, perdidosPorVend, orphans, vendorList, abcData
+    prestesPorVend, perdidosPorVend, orphans, vendorList, abcData: finalAbcData
   };
 }
 
