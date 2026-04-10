@@ -21,9 +21,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 .accent-bar{height:4px;background:linear-gradient(90deg,var(--red-primary),var(--red-dark),var(--red-primary))}
 .filters-bar{background:var(--white);padding:12px 32px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;box-shadow:var(--shadow-sm)}
 .filter-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:700}
-.filter-select{background:var(--surface);border:1px solid var(--border);color:var(--text-primary);padding:8px 14px;border-radius:8px;font-family:'DM Sans';font-size:13px;font-weight:500;cursor:pointer;outline:none;transition:all 0.2s}
-.filter-select:hover,.filter-select:focus{border-color:var(--blue-primary)}
-.filter-divider{width:1px;height:28px;background:var(--border);margin:0 4px}
 .main{padding:24px 32px;max-width:1600px;margin:0 auto}
 .section-title{font-size:12px;text-transform:uppercase;letter-spacing:2.5px;color:var(--blue-primary);font-weight:800;margin-bottom:14px;margin-top:36px;display:flex;align-items:center;gap:10px}
 .section-title:first-child{margin-top:0}
@@ -129,7 +126,7 @@ tbody tr:last-child td{border-bottom:none}
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text">Carregando dados do Google Sheets...</div>
+  <div class="loading-text" id="loadingText">Carregando dados...</div>
 </div>
 
 <div class="header">
@@ -140,7 +137,7 @@ tbody tr:last-child td{border-bottom:none}
 <div class="filters-bar">
 <span class="filter-label">Dados:</span>
 <span style="font-size:13px;font-weight:600;color:var(--blue-primary)" id="dataStatus">Conectando ao Google Sheets...</span>
-<div class="filter-divider"></div>
+<div style="width:1px;height:28px;background:var(--border);margin:0 4px"></div>
 <button onclick="loadAllData()" style="padding:8px 16px;border-radius:8px;background:var(--blue-primary);color:white;border:none;font-family:'DM Sans';font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:0.5px">🔄 Atualizar</button>
 </div>
 
@@ -158,19 +155,28 @@ tbody tr:last-child td{border-bottom:none}
 <div class="footer"><strong style="color:var(--blue-primary)">JAMPAC ALIMENTOS</strong> — Dashboard Comercial Automatizada<br>Equipe Victória | Fonte: Google Sheets (tempo real)</div>
 
 <script>
-const SHEET_ID = '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk';
-const GIDS = {
-  pedidos: 0,
-  metas: 824758089,
-  carteira: 294707846,
-  abc: 644280060
+// ============================================================
+// CONFIGURAÇÃO DAS PLANILHAS — IDs separados por fonte
+// ============================================================
+const SHEETS = {
+  pedidos:  { id: '1SPPPOYSwbOoy6DaXIdJrZnVVdBuiGf0AOG_ex2-zE9s', gid: 0 },
+  metas:    { id: '1J33xcEmb44npqw5sGYVZ9wc1Ng1HUOfubZpj5Pxk_hE', gid: 0 },
+  carteira: { id: '1LLjeKtc9cHCebYnOeiYzTXasZ4obVEwJ6xL_9LwRWsQ', gid: 0 },
+  abcJampac:   { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 0 },
+  abcVita:     { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 824758089 },
+  abcFrigosul: { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 294707846 },
+  abcKorisco:  { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 644280060 }
 };
+
 const EXCLUDED = ['PRISCILA FURQUIM (ITA)','GIOVANA AUSENCIAS 02 (ITA)','LUCIANE GREGORIO (ITA)'];
 const ENT_MAP = {ITP:'Vita Frangos',JPA:'Jampac',KRC:'Korisco',SUL:'Frigosul',NBS:'Outros',JSP:'Outros'};
 const DIAS_UTEIS_MES = 22;
 
-function csvUrl(gid) {
-  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+// ============================================================
+// HELPERS
+// ============================================================
+function csvUrl(sheet) {
+  return `https://docs.google.com/spreadsheets/d/${sheet.id}/export?format=csv&gid=${sheet.gid}`;
 }
 
 function parseCSV(text) {
@@ -201,7 +207,8 @@ function parseCSV(text) {
 
 function parseBRL(s) {
   if (!s) return 0;
-  return parseFloat(s.replace(/R\$\s?/g,'').replace(/\./g,'').replace(',','.')) || 0;
+  const cleaned = String(s).replace(/R\$\s?/g,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+  return parseFloat(cleaned) || 0;
 }
 
 function fmtBRL(v) {
@@ -215,32 +222,55 @@ function fmtKg(v) {
   return v.toFixed(0) + 'kg';
 }
 
-async function fetchSheet(gid) {
-  const res = await fetch(csvUrl(gid));
-  if (!res.ok) throw new Error(`Erro ao carregar aba gid=${gid}: ${res.status}`);
+async function fetchSheet(sheetKey) {
+  const res = await fetch(csvUrl(SHEETS[sheetKey]));
+  if (!res.ok) throw new Error(`Erro ao carregar ${sheetKey}: HTTP ${res.status}`);
   const text = await res.text();
   return parseCSV(text);
 }
 
 let abcState = { tab: null, filter: 'all', data: {} };
 
+// ============================================================
+// LOAD
+// ============================================================
 async function loadAllData() {
   document.getElementById('loadingOverlay').style.display = 'flex';
   document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('dataStatus').innerHTML = 'Conectando ao Google Sheets...';
+  document.getElementById('dataStatus').style.color = 'var(--blue-primary)';
+
   try {
-    const [pedidosRaw, metasRaw, carteiraRaw, abcRaw] = await Promise.all([
-      fetchSheet(GIDS.pedidos),
-      fetchSheet(GIDS.metas),
-      fetchSheet(GIDS.carteira),
-      fetchSheet(GIDS.abc)
+    setLoading('Carregando pedidos...');
+    const pedidosRaw = await fetchSheet('pedidos');
+
+    setLoading('Carregando metas...');
+    const metasRaw = await fetchSheet('metas');
+
+    setLoading('Carregando carteira...');
+    const carteiraRaw = await fetchSheet('carteira');
+
+    setLoading('Carregando curvas ABC...');
+    const [abcJampac, abcVita, abcFrigosul, abcKorisco] = await Promise.all([
+      fetchSheet('abcJampac'),
+      fetchSheet('abcVita'),
+      fetchSheet('abcFrigosul'),
+      fetchSheet('abcKorisco')
     ]);
-    const data = processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw);
+
+    const data = processData(pedidosRaw, metasRaw, carteiraRaw, {
+      'JAMPAC': abcJampac,
+      'VITA FRANGOS': abcVita,
+      'FRIGOSUL': abcFrigosul,
+      'KORISCO': abcKorisco
+    });
+
     renderDashboard(data);
     document.getElementById('updateBadge').textContent = '📡 ' + new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     document.getElementById('dataStatus').innerHTML = '✅ Dados carregados com sucesso';
     document.getElementById('dataStatus').style.color = 'var(--green)';
   } catch(e) {
-    document.getElementById('dataStatus').innerHTML = '❌ Erro: ' + e.message + '<br><small>Verifique se a planilha está com acesso público (qualquer pessoa com o link)</small>';
+    document.getElementById('dataStatus').innerHTML = '❌ Erro: ' + e.message + '<br><small>Verifique se as planilhas estão com acesso público (qualquer pessoa com o link pode visualizar)</small>';
     document.getElementById('dataStatus').style.color = 'var(--red-primary)';
     console.error(e);
   }
@@ -248,94 +278,129 @@ async function loadAllData() {
   document.getElementById('mainContent').style.display = 'block';
 }
 
-function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
-  // PEDIDOS
+function setLoading(msg) {
+  document.getElementById('loadingText').textContent = msg;
+}
+
+// ============================================================
+// PROCESS
+// ============================================================
+function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
+
+  // ---- PEDIDOS ----
+  // Colunas: Entrega | Entreposto | Cliente | Nome | Valor Total | Quilos | Vendedor | Cidade
+  // Linha 0 = header, dados a partir da linha 1
   const pedidos = [];
   for (let i = 1; i < pedidosRaw.length; i++) {
     const r = pedidosRaw[i];
-    if (!r[0] || !r[6] || EXCLUDED.includes(r[6])) continue;
+    if (!r[0] || !r[6]) continue;
+    const vendedor = (r[6]||'').trim();
+    if (EXCLUDED.includes(vendedor)) continue;
     const entCod = (r[1]||'').trim();
     pedidos.push({
-      data: r[0].split(' ')[0],
+      data: r[0].split(' ')[0],   // "2026-04-01"
       entCod,
       entreposto: ENT_MAP[entCod] || 'Outros',
-      clienteCod: r[2],
+      clienteCod: String(r[2]||'').trim(),
       clienteNome: (r[3]||'').substring(0,35),
       valor: parseBRL(r[4]),
       kg: parseFloat(r[5]) || 0,
-      vendedorFull: r[6],
-      vendedor: r[6].replace(' (ITA)',''),
+      vendedorFull: vendedor,
+      vendedor: vendedor.replace(' (ITA)',''),
       cidade: r[7] || ''
     });
   }
 
-  // METAS
+  // ---- METAS ----
+  // Linha 0 = headers principais (ABRIL - META GERAL etc.)
+  // Linha 1 = sub-headers (FAT. / KG)
+  // Linhas 2+ = vendedores
+  // Última linha com nome "METAS" = totais
   const metas = {};
   let metasTotal = {geral:0,vita:0,jampac:0,frigosul:0,korisco:0};
+
   for (let i = 2; i < metasRaw.length; i++) {
     const r = metasRaw[i];
     const name = (r[0]||'').trim().toUpperCase();
-    if (!name || name === 'METAS') {
-      if (name === 'METAS') {
-        metasTotal = {geral:parseBRL(r[1]),vita:parseBRL(r[3]),jampac:parseBRL(r[5]),frigosul:parseBRL(r[7]),korisco:parseBRL(r[9])};
-      }
-      continue;
+    if (!name) continue;
+
+    const obj = {
+      geral:    parseBRL(r[1]),
+      vita:     parseBRL(r[3]),
+      jampac:   parseBRL(r[5]),
+      frigosul: parseBRL(r[7]),
+      korisco:  parseBRL(r[9])
+    };
+
+    if (name === 'METAS') {
+      metasTotal = obj;
+    } else {
+      metas[name] = obj;
     }
-    metas[name] = {geral:parseBRL(r[1]),vita:parseBRL(r[3]),jampac:parseBRL(r[5]),frigosul:parseBRL(r[7]),korisco:parseBRL(r[9])};
   }
 
-  // CARTEIRA
+  // ---- CARTEIRA ----
+  // Linha 0 = título geral, linha 1 = headers reais
+  // Colunas: Código | Cliente | Vendedor | Dias S/Compra | Data da Útima Compra
   const carteira = [];
   const orphans = [];
+
   for (let i = 2; i < carteiraRaw.length; i++) {
     const r = carteiraRaw[i];
     if (!r[2]) continue;
-    const vend = r[2];
-    const obj = {codigo:r[0],nome:(r[1]||'').substring(0,35),vendedorFull:vend,vendedor:vend.replace(' (ITA)',''),dias:parseFloat(r[3])||0,ultima:r[4]||''};
+    const vend = (r[2]||'').trim();
+    if (!vend) continue;
+    const obj = {
+      codigo: r[0],
+      nome: (r[1]||'').substring(0,40),
+      vendedorFull: vend,
+      vendedor: vend.replace(' (ITA)',''),
+      dias: parseFloat(r[3]) || 0,
+      ultima: r[4] || ''
+    };
     if (EXCLUDED.includes(vend)) orphans.push(obj);
     else carteira.push(obj);
   }
 
-  // ABC - single sheet, need to detect sections by looking for header rows
+  // ---- ABC ----
+  // Cada aba: linha 0 = nome do entreposto (header), linha 1 = "Produto | Peso Entregue", linhas seguintes = dados
   const abcData = {};
-  let currentSheet = null;
-  for (let i = 0; i < abcRaw.length; i++) {
-    const r = abcRaw[i];
-    const c0 = (r[0]||'').trim().toUpperCase();
-    // Detect sheet headers
-    if (['JAMPAC ALIMENTOS','JAMPAC','VITA FRANGOS','FRIGOSUL','KORISCO'].includes(c0)) {
-      currentSheet = c0 === 'JAMPAC ALIMENTOS' ? 'JAMPAC' : c0;
-      abcData[currentSheet] = [];
-      continue;
+  for (const [sheetName, raw] of Object.entries(abcRawMap)) {
+    const prods = [];
+    // Pula as 2 primeiras linhas (header do entreposto + header de colunas)
+    for (let i = 2; i < raw.length; i++) {
+      const r = raw[i];
+      const produto = (r[0]||'').trim();
+      const kg = parseFloat(String(r[1]||'').replace(',','.')) || 0;
+      if (!produto || !kg) continue;
+      prods.push({ produto: produto.substring(0,60), kg });
     }
-    if (c0 === 'PRODUTO' || c0 === 'PRODUCT') continue;
-    if (currentSheet && r[0] && r[1] && parseFloat(r[1])) {
-      abcData[currentSheet].push({produto:(r[0]||'').substring(0,50), kg:parseFloat(r[1])||0});
-    }
-  }
-  // Classify ABC
-  for (const [sn, prods] of Object.entries(abcData)) {
+    // Ordena por kg desc (já deve vir ordenado, mas garantindo)
+    prods.sort((a,b) => b.kg - a.kg);
     const total = prods.reduce((s,p) => s+p.kg, 0);
     let cum = 0;
     prods.forEach(p => {
       cum += p.kg;
       p.pctAcum = total > 0 ? Math.round(cum/total*1000)/10 : 0;
-      p.pctInd = total > 0 ? Math.round(p.kg/total*1000)/10 : 0;
-      p.curva = p.pctAcum <= 80 ? 'A' : p.pctAcum <= 95 ? 'B' : 'C';
+      p.pctInd  = total > 0 ? Math.round(p.kg/total*1000)/10 : 0;
+      p.curva   = p.pctAcum <= 80 ? 'A' : p.pctAcum <= 95 ? 'B' : 'C';
     });
-    abcData[sn] = {products: prods, totalKg: total,
+    abcData[sheetName] = {
+      products: prods, totalKg: total,
       a: prods.filter(p=>p.curva==='A').length,
       b: prods.filter(p=>p.curva==='B').length,
-      c: prods.filter(p=>p.curva==='C').length};
+      c: prods.filter(p=>p.curva==='C').length
+    };
   }
 
-  // COMPUTE METRICS
-  const totalFat = pedidos.reduce((s,p)=>s+p.valor,0);
-  const totalKg = pedidos.reduce((s,p)=>s+p.kg,0);
+  // ---- KPIs GERAIS ----
+  const totalFat = pedidos.reduce((s,p)=>s+p.valor, 0);
+  const totalKg  = pedidos.reduce((s,p)=>s+p.kg, 0);
   const clientesCompraram = new Set(pedidos.map(p=>p.clienteCod));
   const pedidosUnicos = new Set(pedidos.map(p=>`${p.data}_${p.clienteCod}`));
   const ticketMedio = pedidosUnicos.size > 0 ? totalFat / pedidosUnicos.size : 0;
   const positivacao = carteira.length > 0 ? clientesCompraram.size / carteira.length * 100 : 0;
+
   const datasUnicas = [...new Set(pedidos.map(p=>p.data))].sort();
   const diasUteisPassed = datasUnicas.length;
   const diasRestantes = Math.max(DIAS_UTEIS_MES - diasUteisPassed, 1);
@@ -343,37 +408,36 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
   const projecao = mediaDiaria * DIAS_UTEIS_MES;
   const vendaDiariaNecessaria = (metasTotal.geral - totalFat) / diasRestantes;
 
-  // FAT POR ENTREPOSTO
+  // ---- FAT POR ENTREPOSTO ----
   const fatEnt = {};
   pedidos.forEach(p => {
     if (!fatEnt[p.entreposto]) fatEnt[p.entreposto] = {fat:0,kg:0};
     fatEnt[p.entreposto].fat += p.valor;
-    fatEnt[p.entreposto].kg += p.kg;
+    fatEnt[p.entreposto].kg  += p.kg;
   });
 
-  // RFM
+  // ---- RFM ----
   const rfm = {ativos:[],prestes:[],hibernando:[],perdidos:[]};
   carteira.forEach(c => {
-    if (c.dias <= 20) rfm.ativos.push(c);
+    if      (c.dias <= 20) rfm.ativos.push(c);
     else if (c.dias <= 35) rfm.prestes.push(c);
     else if (c.dias <= 60) rfm.hibernando.push(c);
-    else rfm.perdidos.push(c);
+    else                   rfm.perdidos.push(c);
   });
   const rfmRecencia = k => {
     const arr = rfm[k];
     return arr.length > 0 ? Math.round(arr.reduce((s,c)=>s+c.dias,0)/arr.length*10)/10 : 0;
   };
-  // Prestes por vendedor
   const prestesPorVend = {};
   rfm.prestes.forEach(c => { prestesPorVend[c.vendedor] = (prestesPorVend[c.vendedor]||0)+1; });
   const perdidosPorVend = {};
   rfm.perdidos.forEach(c => { perdidosPorVend[c.vendedor] = (perdidosPorVend[c.vendedor]||0)+1; });
 
-  // FAT DIÁRIO
+  // ---- FAT DIÁRIO ----
   const fatDiario = {};
   pedidos.forEach(p => { fatDiario[p.data] = (fatDiario[p.data]||0) + p.valor; });
 
-  // VENDOR METRICS
+  // ---- VENDOR METRICS ----
   const vendorMap = {};
   pedidos.forEach(p => {
     if (!vendorMap[p.vendedor]) vendorMap[p.vendedor] = {fat:0,kg:0,clientes:new Set(),pedidos:new Set(),clienteFat:{},entrepostos:{}};
@@ -384,7 +448,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
     vm.clienteFat[p.clienteCod] = (vm.clienteFat[p.clienteCod]||0) + p.valor;
     if (!vm.entrepostos[p.entreposto]) vm.entrepostos[p.entreposto] = {fat:0,kg:0};
     vm.entrepostos[p.entreposto].fat += p.valor;
-    vm.entrepostos[p.entreposto].kg += p.kg;
+    vm.entrepostos[p.entreposto].kg  += p.kg;
   });
 
   const vendorList = Object.entries(vendorMap).map(([name, m]) => {
@@ -396,13 +460,12 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
       return ped ? ped.clienteNome : e[0];
     });
     const metaName = name.toUpperCase();
-    const metaFat = (metas[metaName]||{}).geral || 0;
-    const pctMeta = metaFat > 0 ? Math.round(m.fat/metaFat*1000)/10 : 0;
-    const cartV = carteira.filter(c => c.vendedor === name);
-    const posit = cartV.length > 0 ? Math.round(m.clientes.size/cartV.length*1000)/10 : 0;
+    const metaFat  = (metas[metaName]||{}).geral || 0;
+    const pctMeta  = metaFat > 0 ? Math.round(m.fat/metaFat*1000)/10 : 0;
+    const cartV    = carteira.filter(c => c.vendedor === name);
+    const posit    = cartV.length > 0 ? Math.round(m.clientes.size/cartV.length*1000)/10 : 0;
     const nPedidos = m.pedidos.size;
-    const tm = nPedidos > 0 ? m.fat/nPedidos : 0;
-    // Risk
+    const tm       = nPedidos > 0 ? m.fat/nPedidos : 0;
     let risk = 0;
     if (top3Pct > 50) risk += 40; else if (top3Pct > 35) risk += 20;
     if (cartV.length < 40) risk += 20; else if (cartV.length < 50) risk += 10;
@@ -410,40 +473,46 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
     risk = Math.min(risk, 100);
     const riskLabel = risk >= 60 ? 'Crítico' : risk >= 40 ? 'Alto' : risk >= 20 ? 'Médio' : 'Baixo';
     const riskColor = risk >= 60 ? '#D42B2B' : risk >= 20 ? '#D49B0B' : '#1B9E4B';
-    // Projection per vendor
-    const vendProj = mediaDiaria > 0 ? (m.fat / diasUteisPassed) * DIAS_UTEIS_MES : 0;
+    const vendProj    = diasUteisPassed > 0 ? (m.fat / diasUteisPassed) * DIAS_UTEIS_MES : 0;
     const vendProjPct = metaFat > 0 ? Math.round(vendProj/metaFat*1000)/10 : 0;
 
-    return {name, fat:m.fat, kg:m.kg, metaFat, pctMeta, nClientes:m.clientes.size, carteira:cartV.length,
-      positivacao:posit, nPedidos, ticketMedio:tm, top3Pct, top3Names: top3Names.join(', '),
-      riskScore:risk, riskLabel, riskColor, entrepostos:m.entrepostos, projPct:vendProjPct, proj:vendProj};
+    return {name, fat:m.fat, kg:m.kg, metaFat, pctMeta, nClientes:m.clientes.size,
+      carteira:cartV.length, positivacao:posit, nPedidos, ticketMedio:tm,
+      top3Pct, top3Names:top3Names.join(', '), riskScore:risk, riskLabel, riskColor,
+      entrepostos:m.entrepostos, projPct:vendProjPct, proj:vendProj};
   }).sort((a,b) => b.fat - a.fat);
 
   return {
-    kpis: {totalFat, totalKg, metaGeral:metasTotal.geral, pctMeta:Math.round(totalFat/metasTotal.geral*1000)/10,
-      positivacao:Math.round(positivacao*10)/10, clientesCompraram:clientesCompraram.size, carteiraTotal:carteira.length,
-      ticketMedio, mediaDiaria, projecao, vendaDiariaNecessaria, diasUteisPassed, diasRestantes},
+    kpis: {totalFat, totalKg, metaGeral:metasTotal.geral,
+      pctMeta: metasTotal.geral > 0 ? Math.round(totalFat/metasTotal.geral*1000)/10 : 0,
+      positivacao:Math.round(positivacao*10)/10, clientesCompraram:clientesCompraram.size,
+      carteiraTotal:carteira.length, ticketMedio, mediaDiaria, projecao,
+      vendaDiariaNecessaria, diasUteisPassed, diasRestantes},
     fatEnt, metasTotal, fatDiario, rfm,
     rfmRecencia: {ativos:rfmRecencia('ativos'),prestes:rfmRecencia('prestes'),hibernando:rfmRecencia('hibernando'),perdidos:rfmRecencia('perdidos')},
     prestesPorVend, perdidosPorVend, orphans, vendorList, abcData
   };
 }
 
+// ============================================================
+// RENDER
+// ============================================================
+function pctColor(v) { return v >= 18 ? 'var(--green)' : v >= 12 ? 'var(--yellow)' : 'var(--red-primary)'; }
+
 function renderDashboard(D) {
   const K = D.kpis;
-  const pctColor = v => v >= 18 ? 'var(--green)' : v >= 12 ? 'var(--yellow)' : 'var(--red-primary)';
 
   // KPIs
   document.getElementById('kpiSection').innerHTML = `
-    <div class="section-title">Indicadores Gerais — Abril/2026 (até dia ${K.diasUteisPassed})</div>
+    <div class="section-title">Indicadores Gerais — Abril/2026 (até dia útil ${K.diasUteisPassed})</div>
     <div class="kpi-grid">
-      <div class="kpi-card animated"><div class="kpi-bar" style="width:65%;background:var(--blue-primary)"></div><div class="kpi-label">Faturamento</div><div class="kpi-value">${fmtBRL(K.totalFat)}</div><div class="kpi-sub">Meta: ${fmtBRL(K.metaGeral)}</div></div>
-      <div class="kpi-card animated"><div class="kpi-bar" style="width:${K.pctMeta}%;background:${pctColor(K.pctMeta)}"></div><div class="kpi-label">% Meta</div><div class="kpi-value" style="color:${pctColor(K.pctMeta)}">${K.pctMeta}%</div><div class="kpi-sub">Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES} (esperado ~${Math.round(K.diasUteisPassed/DIAS_UTEIS_MES*100)}%)</div></div>
-      <div class="kpi-card animated"><div class="kpi-bar" style="width:${K.positivacao}%;background:var(--blue-accent)"></div><div class="kpi-label">Positivação</div><div class="kpi-value">${K.positivacao}%</div><div class="kpi-sub">${K.clientesCompraram} / ${K.carteiraTotal} clientes</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.pctMeta,100)}%;background:var(--blue-primary)"></div><div class="kpi-label">Faturamento</div><div class="kpi-value">${fmtBRL(K.totalFat)}</div><div class="kpi-sub">Meta: ${fmtBRL(K.metaGeral)}</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.pctMeta,100)}%;background:${pctColor(K.pctMeta)}"></div><div class="kpi-label">% Meta</div><div class="kpi-value" style="color:${pctColor(K.pctMeta)}">${K.pctMeta}%</div><div class="kpi-sub">Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES} (esperado ~${Math.round(K.diasUteisPassed/DIAS_UTEIS_MES*100)}%)</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.positivacao,100)}%;background:var(--blue-accent)"></div><div class="kpi-label">Positivação</div><div class="kpi-value">${K.positivacao}%</div><div class="kpi-sub">${K.clientesCompraram} / ${K.carteiraTotal} clientes</div></div>
       <div class="kpi-card animated"><div class="kpi-bar" style="width:50%;background:var(--yellow)"></div><div class="kpi-label">Ticket Médio</div><div class="kpi-value">${fmtBRL(K.ticketMedio)}</div><div class="kpi-sub">por pedido</div></div>
       <div class="kpi-card animated"><div class="kpi-bar" style="width:45%;background:var(--orange)"></div><div class="kpi-label">Kilos Vendidos</div><div class="kpi-value">${fmtKg(K.totalKg)}</div><div class="kpi-sub">${K.totalKg.toLocaleString('pt-BR',{maximumFractionDigits:0})} kg</div></div>
       <div class="kpi-card animated"><div class="kpi-bar" style="width:60%;background:var(--green)"></div><div class="kpi-label">Venda Diária p/ Meta</div><div class="kpi-value">${fmtBRL(K.vendaDiariaNecessaria)}</div><div class="kpi-sub">${K.diasRestantes} dias úteis restantes</div></div>
-      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.projecao/K.metaGeral*100,100)}%;background:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}"></div><div class="kpi-label">Projeção</div><div class="kpi-value">${fmtBRL(K.projecao)}</div><div class="kpi-sub">${K.projecao>=K.metaGeral?'🟢':'🔴'} ${Math.round(K.projecao/K.metaGeral*100)}% da meta | Média ${fmtBRL(K.mediaDiaria)}/dia</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.projecao/Math.max(K.metaGeral,1)*100,100)}%;background:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}"></div><div class="kpi-label">Projeção</div><div class="kpi-value">${fmtBRL(K.projecao)}</div><div class="kpi-sub">${K.projecao>=K.metaGeral?'🟢':'🔴'} ${K.metaGeral>0?Math.round(K.projecao/K.metaGeral*100):0}% da meta | Média ${fmtBRL(K.mediaDiaria)}/dia</div></div>
     </div>`;
 
   // ORPHANS
@@ -452,10 +521,12 @@ function renderDashboard(D) {
     document.getElementById('orphanSection').innerHTML = `
       <div class="orphan-alert"><div style="font-size:14px;font-weight:800;color:var(--red-primary);margin-bottom:10px">⚠ ALERTA: ${D.orphans.length} clientes sem vendedor (vendedoras desligadas)</div>
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${names}<br>Ação: redistribuir carteira para a equipe ativa.</div></div>`;
+  } else {
+    document.getElementById('orphanSection').innerHTML = '';
   }
 
   // RFM
-  const R = D.rfm; const RR = D.rfmRecencia; const total = K.carteiraTotal;
+  const R = D.rfm; const RR = D.rfmRecencia; const total = Math.max(K.carteiraTotal,1);
   document.getElementById('rfmSection').innerHTML = `
     <div class="section-title">Matriz de Clientes — Ciclo de Vida</div>
     <div class="rfm-grid">
@@ -469,26 +540,26 @@ function renderDashboard(D) {
       <div class="meta-card"><div class="meta-header"><div class="meta-title">🔴 Perdidos — Por Vendedor</div></div><div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${Object.entries(D.perdidosPorVend).map(([v,n])=>`${v} (${n})`).join(' · ')||'Nenhum'}</div></div>
     </div>`;
 
-  // METAS POR ENTREPOSTO com projeção
+  // METAS POR ENTREPOSTO
   const entConfig = [
-    {key:'Vita Frangos',icon:'🐔',label:'Vita Frangos (ITP)',metaKey:'vita'},
-    {key:'Jampac',icon:'📦',label:'Jampac (JPA)',metaKey:'jampac'},
-    {key:'Frigosul',icon:'🥩',label:'Frigosul (SUL)',metaKey:'frigosul'},
-    {key:'Korisco',icon:'🐔',label:'Korisco (KRC)',metaKey:'korisco'}
+    {key:'Vita Frangos', icon:'🐔', label:'Vita Frangos (ITP)', metaKey:'vita'},
+    {key:'Jampac',       icon:'📦', label:'Jampac (JPA)',       metaKey:'jampac'},
+    {key:'Frigosul',     icon:'🥩', label:'Frigosul (SUL)',     metaKey:'frigosul'},
+    {key:'Korisco',      icon:'🐔', label:'Korisco (KRC)',      metaKey:'korisco'}
   ];
   let metaHtml = '<div class="section-title">Metas por Entreposto</div><div class="meta-section">';
   entConfig.forEach(ec => {
-    const ed = D.fatEnt[ec.key] || {fat:0,kg:0};
+    const ed   = D.fatEnt[ec.key] || {fat:0,kg:0};
     const meta = D.metasTotal[ec.metaKey] || 0;
-    const pct = meta > 0 ? Math.round(ed.fat/meta*1000)/10 : 0;
+    const pct  = meta > 0 ? Math.round(ed.fat/meta*1000)/10 : 0;
     const proj = K.diasUteisPassed > 0 ? (ed.fat/K.diasUteisPassed)*DIAS_UTEIS_MES : 0;
     const projPct = meta > 0 ? Math.round(proj/meta*100) : 0;
-    const projOk = projPct >= 100;
+    const projOk    = projPct >= 100;
     const projClose = projPct >= 85;
     const projColor = projOk ? 'var(--green)' : projClose ? 'var(--yellow)' : 'var(--red-primary)';
-    const projIcon = projOk ? '🟢' : projClose ? '🟡' : '🔴';
+    const projIcon  = projOk ? '🟢' : projClose ? '🟡' : '🔴';
     const projLabel = projOk ? 'Projeção acima da meta' : projClose ? 'Projeção apertada' : 'Projeção abaixo da meta';
-    const barW = Math.min(pct * (100/18), 100); // normalize: 18% expected at day 4
+    const barW = Math.min(pct * (100/18), 100);
     metaHtml += `<div class="meta-card animated">
       <div class="meta-header"><div class="meta-title">${ec.icon} ${ec.label}</div><div class="meta-pct" style="color:${pctColor(pct)}">${pct}%</div></div>
       <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:linear-gradient(90deg,${pct>=18?'var(--green),#16A34A':pct>=12?'var(--yellow),#B8860B':'var(--red-primary),var(--red-dark)'})"></div></div>
@@ -511,7 +582,7 @@ function renderDashboard(D) {
         <div class="chart-title" style="margin-bottom:0">Produtos por Entreposto</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div class="abc-tabs" id="abcTabs">${abcTabsHtml}</div>
-          <div class="filter-divider" style="height:24px"></div>
+          <div style="width:1px;height:24px;background:var(--border)"></div>
           <div class="toggle-group" id="expiryToggle">
             <div class="toggle-btn active" data-filter="all">Todos</div>
             <div class="toggle-btn" data-filter="slow">⚠ Giro Baixo</div>
@@ -531,26 +602,25 @@ function renderDashboard(D) {
   }));
   renderABC();
 
-  // DAILY CHART
+  // FATURAMENTO DIÁRIO
   const dates = Object.keys(D.fatDiario).sort();
-  const maxD = Math.max(...Object.values(D.fatDiario));
+  const maxD  = Math.max(...Object.values(D.fatDiario), 1);
   let dailyBars = '';
   dates.forEach(d => {
-    const v = D.fatDiario[d];
-    const h = maxD > 0 ? v/maxD*145 : 0;
+    const v   = D.fatDiario[d];
+    const h   = v/maxD*145;
     const clr = v >= 50000 ? 'var(--green)' : v >= 30000 ? 'var(--blue-primary)' : 'var(--yellow)';
     const day = d.split('-')[2];
     dailyBars += `<div class="bar-col"><span class="bar-value">${fmtBRL(v)}</span><div class="bar" style="height:${h}px;background:${clr}"></div><span class="bar-label">${day}/04</span></div>`;
   });
   document.getElementById('dailySection').innerHTML = `
     <div class="section-title">Faturamento Diário</div>
-    <div class="chart-card"><div class="chart-title">Faturamento por Dia — Abril/2026</div><div class="bar-chart">${dailyBars}</div></div>`;
+    <div class="chart-card"><div class="chart-title">Faturamento por Dia — Abril/2026</div><div class="bar-chart">${dailyBars||'<span style="color:var(--text-muted);font-size:13px">Sem dados de faturamento diário</span>'}</div></div>`;
 
   // RANKING
   let rankHtml = `<div class="section-title">Ranking — Equipe Victória</div>
     <div class="table-card"><div class="table-header-bar"><div class="table-title">Performance Individual</div><span style="font-size:11px;color:var(--text-muted)">Passe o mouse no nome para detalhes</span></div>
     <table><thead><tr><th>#</th><th>Vendedor</th><th>Faturamento</th><th>% Meta</th><th>Projeção</th><th>Positivação</th><th>Ticket Médio</th><th>Kilos</th><th>Status</th></tr></thead><tbody>`;
-
   D.vendorList.forEach((v,i) => {
     const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
     const st = v.pctMeta >= 12 ? 'green' : v.pctMeta >= 10 ? 'yellow' : 'red';
@@ -563,14 +633,13 @@ function renderDashboard(D) {
     if (v.riskScore >= 60) alertMsg += 'Risco crítico. ';
     else if (v.riskScore >= 40) alertMsg += 'Diversificar carteira. ';
     else alertMsg += 'Boa distribuição. ';
-    const alertBg = v.riskScore>=60?'rgba(212,43,43,0.08)':v.riskScore>=20?'rgba(212,155,11,0.08)':'rgba(27,158,75,0.08)';
+    const alertBg  = v.riskScore>=60?'rgba(212,43,43,0.08)':v.riskScore>=20?'rgba(212,155,11,0.08)':'rgba(27,158,75,0.08)';
     const alertClr = v.riskScore>=60?'var(--red-primary)':v.riskScore>=20?'var(--yellow)':'var(--green)';
-    let entHtml = Object.entries(v.entrepostos).map(([k,e])=>`<strong>${k}</strong>: ${fmtBRL(e.fat)}`).join(' · ');
+    const entHtml = Object.entries(v.entrepostos).map(([k,e])=>`<strong>${k}</strong>: ${fmtBRL(e.fat)}`).join(' · ');
 
     rankHtml += `<tr>
       <td><span class="rank-badge ${rc}">${i+1}</span></td>
-      <td class="vendor-name-cell" style="font-weight:700">
-        ${v.name}
+      <td class="vendor-name-cell" style="font-weight:700">${v.name}
         <div class="vendor-tooltip">
           <div class="tt-header">${v.name}</div>
           <div class="tt-grid">
@@ -604,12 +673,16 @@ function renderDashboard(D) {
   document.getElementById('projectionSection').innerHTML = `
     <div class="section-title">Projeção de Fechamento</div>
     <div class="meta-section">
-      <div class="meta-card animated"><div class="meta-header"><div class="meta-title">📈 Projeção no Ritmo Atual</div><div class="meta-pct" style="color:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}">${fmtBRL(K.projecao)}</div></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(K.projecao/K.metaGeral*100,100)}%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div></div>
-      <div class="meta-details"><span>Média: ${fmtBRL(K.mediaDiaria)}/dia</span><span>Meta: ${fmtBRL(K.metaGeral)}</span><span>Gap: ${fmtBRL(K.metaGeral-K.projecao)}</span></div></div>
-      <div class="meta-card animated"><div class="meta-header"><div class="meta-title">🎯 Necessário p/ Bater Meta</div><div class="meta-pct" style="color:var(--red-primary)">${fmtBRL(K.vendaDiariaNecessaria)}/dia</div></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${K.pctMeta}%;background:linear-gradient(90deg,var(--red-primary),var(--red-dark))"></div></div>
-      <div class="meta-details"><span>Dias úteis: ${K.diasRestantes}</span><span>Falta: ${fmtBRL(K.metaGeral-K.totalFat)}</span><span>Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES}</span></div></div>
+      <div class="meta-card animated">
+        <div class="meta-header"><div class="meta-title">📈 Projeção no Ritmo Atual</div><div class="meta-pct" style="color:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}">${fmtBRL(K.projecao)}</div></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${Math.min(K.projecao/Math.max(K.metaGeral,1)*100,100)}%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div></div>
+        <div class="meta-details"><span>Média: ${fmtBRL(K.mediaDiaria)}/dia</span><span>Meta: ${fmtBRL(K.metaGeral)}</span><span>Gap: ${fmtBRL(K.metaGeral-K.projecao)}</span></div>
+      </div>
+      <div class="meta-card animated">
+        <div class="meta-header"><div class="meta-title">🎯 Necessário p/ Bater Meta</div><div class="meta-pct" style="color:var(--red-primary)">${fmtBRL(K.vendaDiariaNecessaria)}/dia</div></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${Math.min(K.pctMeta,100)}%;background:linear-gradient(90deg,var(--red-primary),var(--red-dark))"></div></div>
+        <div class="meta-details"><span>Dias úteis: ${K.diasRestantes}</span><span>Falta: ${fmtBRL(K.metaGeral-K.totalFat)}</span><span>Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES}</span></div>
+      </div>
     </div>`;
 }
 
@@ -617,9 +690,9 @@ function renderABC() {
   const d = abcState.data[abcState.tab];
   if (!d) return;
   const prods = abcState.filter === 'slow' ? d.products.filter(p=>p.curva==='C') : d.products;
-  const body = document.getElementById('abcBody');
+  const body  = document.getElementById('abcBody');
   body.innerHTML = prods.map(p => {
-    const cc = p.curva==='A'?'var(--green)':p.curva==='B'?'var(--yellow)':'var(--text-muted)';
+    const cc      = p.curva==='A'?'var(--green)':p.curva==='B'?'var(--yellow)':'var(--text-muted)';
     const stLabel = p.curva==='A'?'ESSENCIAL':p.curva==='B'?'RELEVANTE':'GIRO BAIXO';
     const stClass = p.curva==='A'?'pill-green':p.curva==='B'?'pill-yellow':'pill-red';
     return `<tr class="${p.curva==='C'?'slow-row':''}">
