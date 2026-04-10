@@ -180,29 +180,43 @@ function csvUrl(sheet) {
 }
 
 function parseCSV(text) {
-  const lines = [];
-  let current = '';
+  const rows = [];
+  let row = [];
+  let cell = '';
   let inQuotes = false;
+  
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '"') { inQuotes = !inQuotes; continue; }
-    if (ch === '\n' && !inQuotes) { lines.push(current); current = ''; continue; }
-    if (ch === '\r' && !inQuotes) continue;
-    current += ch;
-  }
-  if (current) lines.push(current);
-  return lines.map(l => {
-    const cells = [];
-    let cell = '';
-    let q = false;
-    for (let i = 0; i < l.length; i++) {
-      if (l[i] === '"') { q = !q; continue; }
-      if (l[i] === ',' && !q) { cells.push(cell.trim()); cell = ''; continue; }
-      cell += l[i];
+    
+    if (ch === '"') {
+      if (inQuotes && text[i+1] === '"') {
+        cell += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      row.push(cell.trim());
+      cell = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i+1] === '\n') {
+        i++; // skip \n
+      }
+      row.push(cell.trim());
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += ch;
     }
-    cells.push(cell.trim());
-    return cells;
-  });
+  }
+  
+  if (cell !== '' || row.length > 0) {
+    row.push(cell.trim());
+    if (row.length > 0) rows.push(row);
+  }
+  
+  return rows;
 }
 
 function parseBRL(s) {
