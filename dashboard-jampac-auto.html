@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jampac Alimentos — Dashboard Comercial</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--blue-primary:#1A56A8;--blue-dark:#0F3D7A;--blue-light:#E8F0FE;--blue-accent:#2B6FCB;--blue-surface:#F0F5FC;--red-primary:#D42B2B;--red-dark:#A31E1E;--green:#1B9E4B;--green-bg:rgba(27,158,75,0.1);--yellow:#D49B0B;--yellow-bg:rgba(212,155,11,0.1);--orange:#E06B1F;--orange-bg:rgba(224,107,31,0.1);--white:#FFF;--bg:#F5F7FA;--card:#FFF;--surface:#F0F2F5;--border:#E0E4EA;--border-light:#EDF0F4;--text-primary:#1A1A2E;--text-secondary:#5A6278;--text-muted:#8B93A7;--shadow-sm:0 1px 3px rgba(0,0,0,0.06);--shadow-md:0 4px 12px rgba(0,0,0,0.08);--shadow-lg:0 8px 24px rgba(0,0,0,0.1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-primary);min-height:100vh}
+.header{background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue-primary) 60%,var(--blue-accent) 100%);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(15,61,122,0.25);position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:16px}
+.logo-text{font-size:26px;font-weight:800;letter-spacing:2px;color:white;text-transform:uppercase}
+.logo-text .logo-red{color:#FF4444}
+.logo-sub{font-size:11px;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:3px;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:12px}
+.update-badge,.team-badge{padding:6px 14px;border-radius:8px;font-size:12px;color:white}
+.update-badge{background:rgba(255,255,255,0.15);font-family:'Space Mono',monospace}
+.team-badge{background:rgba(255,255,255,0.2);font-weight:700;border:1px solid rgba(255,255,255,0.3)}
+.accent-bar{height:4px;background:linear-gradient(90deg,var(--red-primary),var(--red-dark),var(--red-primary))}
+.filters-bar{background:var(--white);padding:12px 32px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;box-shadow:var(--shadow-sm)}
+.filter-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:700}
+.filter-select{background:var(--surface);border:1px solid var(--border);color:var(--text-primary);padding:8px 14px;border-radius:8px;font-family:'DM Sans';font-size:13px;font-weight:500;cursor:pointer;outline:none;transition:all 0.2s}
+.filter-select:hover,.filter-select:focus{border-color:var(--blue-primary)}
+.filter-divider{width:1px;height:28px;background:var(--border);margin:0 4px}
+.main{padding:24px 32px;max-width:1600px;margin:0 auto}
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:2.5px;color:var(--blue-primary);font-weight:800;margin-bottom:14px;margin-top:36px;display:flex;align-items:center;gap:10px}
+.section-title:first-child{margin-top:0}
+.section-title::after{content:'';flex:1;height:2px;background:linear-gradient(90deg,var(--blue-light),transparent)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:all 0.2s;box-shadow:var(--shadow-sm)}
+.kpi-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--blue-accent)}
+.kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);font-weight:700;margin-bottom:8px}
+.kpi-value{font-size:24px;font-weight:800;letter-spacing:-1px;font-family:'Space Mono',monospace;line-height:1}
+.kpi-sub{margin-top:8px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kpi-bar{position:absolute;top:0;left:0;height:3px}
+.meta-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}
+.meta-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)}
+.meta-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.meta-title{font-size:14px;font-weight:700}
+.meta-pct{font-family:'Space Mono',monospace;font-size:20px;font-weight:700}
+.progress-track{width:100%;height:10px;background:var(--surface);border-radius:5px;overflow:hidden}
+.progress-fill{height:100%;border-radius:5px;transition:width 1s ease-out}
+.meta-details{margin-top:12px;display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);flex-wrap:wrap;gap:4px}
+.meta-details span{font-family:'Space Mono',monospace}
+.proj-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-top:10px}
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:14px;box-shadow:var(--shadow-sm)}
+.table-header-bar{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--blue-light)}
+.table-title{font-size:14px;font-weight:700;color:var(--blue-dark)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;padding:12px 14px;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--blue-primary);font-weight:700;border-bottom:2px solid var(--border);background:var(--blue-light)}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border-light);font-weight:500}
+tbody tr:hover{background:var(--blue-surface)}
+tbody tr:last-child td{border-bottom:none}
+.rank-badge{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.rank-1{background:linear-gradient(135deg,#FDE047,#EAB308);color:#111}
+.rank-2{background:linear-gradient(135deg,#D1D5DB,#9CA3AF);color:#111}
+.rank-3{background:linear-gradient(135deg,#FDBA74,#EA580C);color:#fff}
+.rank-n{background:var(--surface);color:var(--text-muted)}
+.pill{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:inline-block}
+.pill-green{background:var(--green-bg);color:var(--green)}
+.pill-yellow{background:var(--yellow-bg);color:var(--yellow)}
+.pill-red{background:rgba(212,43,43,0.1);color:var(--red-primary)}
+.pill-blue{background:rgba(26,86,168,0.1);color:var(--blue-primary)}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm);margin-top:14px}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:180px;padding-bottom:28px;position:relative}
+.bar-chart::before{content:'';position:absolute;bottom:27px;left:0;right:0;height:1px;background:var(--border)}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
+.bar-col .bar{width:100%;max-width:50px;border-radius:6px 6px 0 0;transition:height 1s ease-out}
+.bar-col .bar-label{font-size:10px;color:var(--text-muted);font-weight:600;position:absolute;bottom:-24px;white-space:nowrap}
+.bar-col .bar-value{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.rfm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px}
+.rfm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;position:relative;overflow:hidden;transition:all 0.2s;box-shadow:var(--shadow-sm)}
+.rfm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.rfm-icon{font-size:28px;margin-bottom:6px}
+.rfm-count{font-family:'Space Mono',monospace;font-size:28px;font-weight:800;margin-bottom:4px}
+.rfm-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.rfm-desc{font-size:11px;color:var(--text-muted);line-height:1.4}
+.rfm-pct{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;margin-top:6px}
+.rfm-bar{position:absolute;bottom:0;left:0;right:0;height:4px}
+.rfm-extra{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary);line-height:1.7;text-align:left}
+.rfm-extra strong{color:var(--text-primary);font-family:'Space Mono',monospace}
+.vendor-name-cell{position:relative;cursor:pointer}
+.vendor-tooltip{display:none;position:absolute;left:100%;top:50%;transform:translateY(-50%);background:var(--card);border:2px solid var(--blue-primary);border-radius:14px;padding:18px 20px;width:360px;z-index:200;box-shadow:var(--shadow-lg);pointer-events:none;margin-left:12px}
+.vendor-tooltip::before{content:'';position:absolute;left:-8px;top:50%;transform:translateY(-50%) rotate(45deg);width:14px;height:14px;background:var(--card);border-left:2px solid var(--blue-primary);border-bottom:2px solid var(--blue-primary)}
+.vendor-name-cell:hover .vendor-tooltip{display:block}
+.tt-header{font-size:14px;font-weight:800;margin-bottom:12px;color:var(--blue-dark);border-bottom:2px solid var(--blue-light);padding-bottom:8px}
+.tt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.tt-item .tl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700}
+.tt-item .tv{font-size:14px;font-weight:700;font-family:'Space Mono',monospace;margin-top:2px}
+.tt-full{grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.risk-track{width:100%;height:8px;background:var(--surface);border-radius:4px;overflow:hidden;margin-top:6px}
+.risk-fill{height:100%;border-radius:4px}
+.tt-alert{margin-top:10px;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:600;line-height:1.4}
+.abc-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.abc-tab{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px}
+.abc-tab.active{background:var(--blue-primary);color:white;border-color:var(--blue-primary)}
+.abc-tab:hover:not(.active){border-color:var(--blue-primary);color:var(--blue-primary)}
+.toggle-group{display:flex}
+.toggle-btn{padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px}
+.toggle-btn:first-child{border-radius:8px 0 0 8px}
+.toggle-btn:last-child{border-radius:0 8px 8px 0}
+.toggle-btn.active{background:var(--red-primary);color:white;border-color:var(--red-primary)}
+.abc-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.abc-summary-item{background:var(--surface);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)}
+.abc-letter{font-size:24px;font-weight:800;font-family:'Space Mono',monospace;margin-bottom:4px}
+.abc-info{font-size:11px;color:var(--text-muted)}
+.abc-scroll{max-height:400px;overflow-y:auto}
+.abc-scroll::-webkit-scrollbar{width:6px}
+.abc-scroll::-webkit-scrollbar-track{background:var(--surface)}
+.abc-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#abcTable thead{position:sticky;top:0;z-index:10}
+#abcTable thead th{box-shadow:0 2px 4px rgba(0,0,0,0.06)}
+.slow-row{background:rgba(212,43,43,0.05)}
+.orphan-alert{background:#FDE8E8;border:1px solid rgba(212,43,43,0.2);border-radius:14px;padding:20px;margin-top:14px}
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px}
+.loading-spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--blue-primary);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--text-secondary);font-weight:600}
+.footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted);border-top:2px solid var(--border);margin-top:40px;background:var(--white)}
+@media(max-width:768px){.header{padding:14px 16px;flex-direction:column;gap:10px}.filters-bar{padding:12px 16px}.main{padding:16px}.kpi-grid{grid-template-columns:repeat(2,1fr)}.rfm-grid{grid-template-columns:repeat(2,1fr)}.meta-section{grid-template-columns:1fr}.vendor-tooltip{left:auto;right:0;top:100%;transform:none;margin-left:0;margin-top:8px;width:280px}.vendor-tooltip::before{display:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.animated{animation:fadeIn 0.4s ease-out both}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Carregando dados do Google Sheets...</div>
+</div>
+
+<div class="header">
+<div class="header-left"><div><div class="logo-text">JAMPA<span class="logo-red">C</span></div><div class="logo-sub">Alimentos</div></div></div>
+<div class="header-right"><div class="team-badge">👤 Equipe Victória</div><div class="update-badge" id="updateBadge">📡 Carregando...</div></div>
+</div>
+<div class="accent-bar"></div>
+<div class="filters-bar">
+<span class="filter-label">Dados:</span>
+<span style="font-size:13px;font-weight:600;color:var(--blue-primary)" id="dataStatus">Conectando ao Google Sheets...</span>
+<div class="filter-divider"></div>
+<button onclick="loadAllData()" style="padding:8px 16px;border-radius:8px;background:var(--blue-primary);color:white;border:none;font-family:'DM Sans';font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:0.5px">🔄 Atualizar</button>
+</div>
+
+<div class="main" id="mainContent" style="display:none">
+  <div id="kpiSection"></div>
+  <div id="orphanSection"></div>
+  <div id="rfmSection"></div>
+  <div id="metaSection"></div>
+  <div id="abcSection"></div>
+  <div id="dailySection"></div>
+  <div id="rankingSection"></div>
+  <div id="projectionSection"></div>
+</div>
+
+<div class="footer"><strong style="color:var(--blue-primary)">JAMPAC ALIMENTOS</strong> — Dashboard Comercial Automatizada<br>Equipe Victória | Fonte: Google Sheets (tempo real)</div>
+
+<script>
+const SHEET_ID = '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk';
+const GIDS = {
+  pedidos: 0,
+  metas: 824758089,
+  carteira: 294707846,
+  abc: 644280060
+};
+const EXCLUDED = ['PRISCILA FURQUIM (ITA)','GIOVANA AUSENCIAS 02 (ITA)','LUCIANE GREGORIO (ITA)'];
+const ENT_MAP = {ITP:'Vita Frangos',JPA:'Jampac',KRC:'Korisco',SUL:'Frigosul',NBS:'Outros',JSP:'Outros'};
+const DIAS_UTEIS_MES = 22;
+
+function csvUrl(gid) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+}
+
+function parseCSV(text) {
+  const lines = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') { inQuotes = !inQuotes; continue; }
+    if (ch === '\n' && !inQuotes) { lines.push(current); current = ''; continue; }
+    if (ch === '\r' && !inQuotes) continue;
+    current += ch;
+  }
+  if (current) lines.push(current);
+  return lines.map(l => {
+    const cells = [];
+    let cell = '';
+    let q = false;
+    for (let i = 0; i < l.length; i++) {
+      if (l[i] === '"') { q = !q; continue; }
+      if (l[i] === ',' && !q) { cells.push(cell.trim()); cell = ''; continue; }
+      cell += l[i];
+    }
+    cells.push(cell.trim());
+    return cells;
+  });
+}
+
+function parseBRL(s) {
+  if (!s) return 0;
+  return parseFloat(s.replace(/R\$\s?/g,'').replace(/\./g,'').replace(',','.')) || 0;
+}
+
+function fmtBRL(v) {
+  if (v >= 1000000) return 'R$ ' + (v/1e6).toFixed(2).replace('.',',') + 'M';
+  if (v >= 1000) return 'R$ ' + (v/1000).toFixed(1).replace('.',',') + 'K';
+  return 'R$ ' + v.toFixed(0);
+}
+
+function fmtKg(v) {
+  if (v >= 1000) return (v/1000).toFixed(1).replace('.',',') + 't';
+  return v.toFixed(0) + 'kg';
+}
+
+async function fetchSheet(gid) {
+  const res = await fetch(csvUrl(gid));
+  if (!res.ok) throw new Error(`Erro ao carregar aba gid=${gid}: ${res.status}`);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+let abcState = { tab: null, filter: 'all', data: {} };
+
+async function loadAllData() {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'none';
+  try {
+    const [pedidosRaw, metasRaw, carteiraRaw, abcRaw] = await Promise.all([
+      fetchSheet(GIDS.pedidos),
+      fetchSheet(GIDS.metas),
+      fetchSheet(GIDS.carteira),
+      fetchSheet(GIDS.abc)
+    ]);
+    const data = processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw);
+    renderDashboard(data);
+    document.getElementById('updateBadge').textContent = '📡 ' + new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('dataStatus').innerHTML = '✅ Dados carregados com sucesso';
+    document.getElementById('dataStatus').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('dataStatus').innerHTML = '❌ Erro: ' + e.message + '<br><small>Verifique se a planilha está com acesso público (qualquer pessoa com o link)</small>';
+    document.getElementById('dataStatus').style.color = 'var(--red-primary)';
+    console.error(e);
+  }
+  document.getElementById('loadingOverlay').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+}
+
+function processData(pedidosRaw, metasRaw, carteiraRaw, abcRaw) {
+  // PEDIDOS
+  const pedidos = [];
+  for (let i = 1; i < pedidosRaw.length; i++) {
+    const r = pedidosRaw[i];
+    if (!r[0] || !r[6] || EXCLUDED.includes(r[6])) continue;
+    const entCod = (r[1]||'').trim();
+    pedidos.push({
+      data: r[0].split(' ')[0],
+      entCod,
+      entreposto: ENT_MAP[entCod] || 'Outros',
+      clienteCod: r[2],
+      clienteNome: (r[3]||'').substring(0,35),
+      valor: parseBRL(r[4]),
+      kg: parseFloat(r[5]) || 0,
+      vendedorFull: r[6],
+      vendedor: r[6].replace(' (ITA)',''),
+      cidade: r[7] || ''
+    });
+  }
+
+  // METAS
+  const metas = {};
+  let metasTotal = {geral:0,vita:0,jampac:0,frigosul:0,korisco:0};
+  for (let i = 2; i < metasRaw.length; i++) {
+    const r = metasRaw[i];
+    const name = (r[0]||'').trim().toUpperCase();
+    if (!name || name === 'METAS') {
+      if (name === 'METAS') {
+        metasTotal = {geral:parseBRL(r[1]),vita:parseBRL(r[3]),jampac:parseBRL(r[5]),frigosul:parseBRL(r[7]),korisco:parseBRL(r[9])};
+      }
+      continue;
+    }
+    metas[name] = {geral:parseBRL(r[1]),vita:parseBRL(r[3]),jampac:parseBRL(r[5]),frigosul:parseBRL(r[7]),korisco:parseBRL(r[9])};
+  }
+
+  // CARTEIRA
+  const carteira = [];
+  const orphans = [];
+  for (let i = 2; i < carteiraRaw.length; i++) {
+    const r = carteiraRaw[i];
+    if (!r[2]) continue;
+    const vend = r[2];
+    const obj = {codigo:r[0],nome:(r[1]||'').substring(0,35),vendedorFull:vend,vendedor:vend.replace(' (ITA)',''),dias:parseFloat(r[3])||0,ultima:r[4]||''};
+    if (EXCLUDED.includes(vend)) orphans.push(obj);
+    else carteira.push(obj);
+  }
+
+  // ABC - single sheet, need to detect sections by looking for header rows
+  const abcData = {};
+  let currentSheet = null;
+  for (let i = 0; i < abcRaw.length; i++) {
+    const r = abcRaw[i];
+    const c0 = (r[0]||'').trim().toUpperCase();
+    // Detect sheet headers
+    if (['JAMPAC ALIMENTOS','JAMPAC','VITA FRANGOS','FRIGOSUL','KORISCO'].includes(c0)) {
+      currentSheet = c0 === 'JAMPAC ALIMENTOS' ? 'JAMPAC' : c0;
+      abcData[currentSheet] = [];
+      continue;
+    }
+    if (c0 === 'PRODUTO' || c0 === 'PRODUCT') continue;
+    if (currentSheet && r[0] && r[1] && parseFloat(r[1])) {
+      abcData[currentSheet].push({produto:(r[0]||'').substring(0,50), kg:parseFloat(r[1])||0});
+    }
+  }
+  // Classify ABC
+  for (const [sn, prods] of Object.entries(abcData)) {
+    const total = prods.reduce((s,p) => s+p.kg, 0);
+    let cum = 0;
+    prods.forEach(p => {
+      cum += p.kg;
+      p.pctAcum = total > 0 ? Math.round(cum/total*1000)/10 : 0;
+      p.pctInd = total > 0 ? Math.round(p.kg/total*1000)/10 : 0;
+      p.curva = p.pctAcum <= 80 ? 'A' : p.pctAcum <= 95 ? 'B' : 'C';
+    });
+    abcData[sn] = {products: prods, totalKg: total,
+      a: prods.filter(p=>p.curva==='A').length,
+      b: prods.filter(p=>p.curva==='B').length,
+      c: prods.filter(p=>p.curva==='C').length};
+  }
+
+  // COMPUTE METRICS
+  const totalFat = pedidos.reduce((s,p)=>s+p.valor,0);
+  const totalKg = pedidos.reduce((s,p)=>s+p.kg,0);
+  const clientesCompraram = new Set(pedidos.map(p=>p.clienteCod));
+  const pedidosUnicos = new Set(pedidos.map(p=>`${p.data}_${p.clienteCod}`));
+  const ticketMedio = pedidosUnicos.size > 0 ? totalFat / pedidosUnicos.size : 0;
+  const positivacao = carteira.length > 0 ? clientesCompraram.size / carteira.length * 100 : 0;
+  const datasUnicas = [...new Set(pedidos.map(p=>p.data))].sort();
+  const diasUteisPassed = datasUnicas.length;
+  const diasRestantes = Math.max(DIAS_UTEIS_MES - diasUteisPassed, 1);
+  const mediaDiaria = diasUteisPassed > 0 ? totalFat / diasUteisPassed : 0;
+  const projecao = mediaDiaria * DIAS_UTEIS_MES;
+  const vendaDiariaNecessaria = (metasTotal.geral - totalFat) / diasRestantes;
+
+  // FAT POR ENTREPOSTO
+  const fatEnt = {};
+  pedidos.forEach(p => {
+    if (!fatEnt[p.entreposto]) fatEnt[p.entreposto] = {fat:0,kg:0};
+    fatEnt[p.entreposto].fat += p.valor;
+    fatEnt[p.entreposto].kg += p.kg;
+  });
+
+  // RFM
+  const rfm = {ativos:[],prestes:[],hibernando:[],perdidos:[]};
+  carteira.forEach(c => {
+    if (c.dias <= 20) rfm.ativos.push(c);
+    else if (c.dias <= 35) rfm.prestes.push(c);
+    else if (c.dias <= 60) rfm.hibernando.push(c);
+    else rfm.perdidos.push(c);
+  });
+  const rfmRecencia = k => {
+    const arr = rfm[k];
+    return arr.length > 0 ? Math.round(arr.reduce((s,c)=>s+c.dias,0)/arr.length*10)/10 : 0;
+  };
+  // Prestes por vendedor
+  const prestesPorVend = {};
+  rfm.prestes.forEach(c => { prestesPorVend[c.vendedor] = (prestesPorVend[c.vendedor]||0)+1; });
+  const perdidosPorVend = {};
+  rfm.perdidos.forEach(c => { perdidosPorVend[c.vendedor] = (perdidosPorVend[c.vendedor]||0)+1; });
+
+  // FAT DIÁRIO
+  const fatDiario = {};
+  pedidos.forEach(p => { fatDiario[p.data] = (fatDiario[p.data]||0) + p.valor; });
+
+  // VENDOR METRICS
+  const vendorMap = {};
+  pedidos.forEach(p => {
+    if (!vendorMap[p.vendedor]) vendorMap[p.vendedor] = {fat:0,kg:0,clientes:new Set(),pedidos:new Set(),clienteFat:{},entrepostos:{}};
+    const vm = vendorMap[p.vendedor];
+    vm.fat += p.valor; vm.kg += p.kg;
+    vm.clientes.add(p.clienteCod);
+    vm.pedidos.add(`${p.data}_${p.clienteCod}`);
+    vm.clienteFat[p.clienteCod] = (vm.clienteFat[p.clienteCod]||0) + p.valor;
+    if (!vm.entrepostos[p.entreposto]) vm.entrepostos[p.entreposto] = {fat:0,kg:0};
+    vm.entrepostos[p.entreposto].fat += p.valor;
+    vm.entrepostos[p.entreposto].kg += p.kg;
+  });
+
+  const vendorList = Object.entries(vendorMap).map(([name, m]) => {
+    const cliFatSorted = Object.entries(m.clienteFat).sort((a,b) => b[1]-a[1]);
+    const top3Fat = cliFatSorted.slice(0,3).reduce((s,e)=>s+e[1],0);
+    const top3Pct = m.fat > 0 ? Math.round(top3Fat/m.fat*1000)/10 : 0;
+    const top3Names = cliFatSorted.slice(0,3).map(e => {
+      const ped = pedidos.find(p => p.clienteCod === e[0]);
+      return ped ? ped.clienteNome : e[0];
+    });
+    const metaName = name.toUpperCase();
+    const metaFat = (metas[metaName]||{}).geral || 0;
+    const pctMeta = metaFat > 0 ? Math.round(m.fat/metaFat*1000)/10 : 0;
+    const cartV = carteira.filter(c => c.vendedor === name);
+    const posit = cartV.length > 0 ? Math.round(m.clientes.size/cartV.length*1000)/10 : 0;
+    const nPedidos = m.pedidos.size;
+    const tm = nPedidos > 0 ? m.fat/nPedidos : 0;
+    // Risk
+    let risk = 0;
+    if (top3Pct > 50) risk += 40; else if (top3Pct > 35) risk += 20;
+    if (cartV.length < 40) risk += 20; else if (cartV.length < 50) risk += 10;
+    if (posit < 20) risk += 20; else if (posit < 30) risk += 10;
+    risk = Math.min(risk, 100);
+    const riskLabel = risk >= 60 ? 'Crítico' : risk >= 40 ? 'Alto' : risk >= 20 ? 'Médio' : 'Baixo';
+    const riskColor = risk >= 60 ? '#D42B2B' : risk >= 20 ? '#D49B0B' : '#1B9E4B';
+    // Projection per vendor
+    const vendProj = mediaDiaria > 0 ? (m.fat / diasUteisPassed) * DIAS_UTEIS_MES : 0;
+    const vendProjPct = metaFat > 0 ? Math.round(vendProj/metaFat*1000)/10 : 0;
+
+    return {name, fat:m.fat, kg:m.kg, metaFat, pctMeta, nClientes:m.clientes.size, carteira:cartV.length,
+      positivacao:posit, nPedidos, ticketMedio:tm, top3Pct, top3Names: top3Names.join(', '),
+      riskScore:risk, riskLabel, riskColor, entrepostos:m.entrepostos, projPct:vendProjPct, proj:vendProj};
+  }).sort((a,b) => b.fat - a.fat);
+
+  return {
+    kpis: {totalFat, totalKg, metaGeral:metasTotal.geral, pctMeta:Math.round(totalFat/metasTotal.geral*1000)/10,
+      positivacao:Math.round(positivacao*10)/10, clientesCompraram:clientesCompraram.size, carteiraTotal:carteira.length,
+      ticketMedio, mediaDiaria, projecao, vendaDiariaNecessaria, diasUteisPassed, diasRestantes},
+    fatEnt, metasTotal, fatDiario, rfm,
+    rfmRecencia: {ativos:rfmRecencia('ativos'),prestes:rfmRecencia('prestes'),hibernando:rfmRecencia('hibernando'),perdidos:rfmRecencia('perdidos')},
+    prestesPorVend, perdidosPorVend, orphans, vendorList, abcData
+  };
+}
+
+function renderDashboard(D) {
+  const K = D.kpis;
+  const pctColor = v => v >= 18 ? 'var(--green)' : v >= 12 ? 'var(--yellow)' : 'var(--red-primary)';
+
+  // KPIs
+  document.getElementById('kpiSection').innerHTML = `
+    <div class="section-title">Indicadores Gerais — Abril/2026 (até dia ${K.diasUteisPassed})</div>
+    <div class="kpi-grid">
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:65%;background:var(--blue-primary)"></div><div class="kpi-label">Faturamento</div><div class="kpi-value">${fmtBRL(K.totalFat)}</div><div class="kpi-sub">Meta: ${fmtBRL(K.metaGeral)}</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${K.pctMeta}%;background:${pctColor(K.pctMeta)}"></div><div class="kpi-label">% Meta</div><div class="kpi-value" style="color:${pctColor(K.pctMeta)}">${K.pctMeta}%</div><div class="kpi-sub">Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES} (esperado ~${Math.round(K.diasUteisPassed/DIAS_UTEIS_MES*100)}%)</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${K.positivacao}%;background:var(--blue-accent)"></div><div class="kpi-label">Positivação</div><div class="kpi-value">${K.positivacao}%</div><div class="kpi-sub">${K.clientesCompraram} / ${K.carteiraTotal} clientes</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:50%;background:var(--yellow)"></div><div class="kpi-label">Ticket Médio</div><div class="kpi-value">${fmtBRL(K.ticketMedio)}</div><div class="kpi-sub">por pedido</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:45%;background:var(--orange)"></div><div class="kpi-label">Kilos Vendidos</div><div class="kpi-value">${fmtKg(K.totalKg)}</div><div class="kpi-sub">${K.totalKg.toLocaleString('pt-BR',{maximumFractionDigits:0})} kg</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:60%;background:var(--green)"></div><div class="kpi-label">Venda Diária p/ Meta</div><div class="kpi-value">${fmtBRL(K.vendaDiariaNecessaria)}</div><div class="kpi-sub">${K.diasRestantes} dias úteis restantes</div></div>
+      <div class="kpi-card animated"><div class="kpi-bar" style="width:${Math.min(K.projecao/K.metaGeral*100,100)}%;background:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}"></div><div class="kpi-label">Projeção</div><div class="kpi-value">${fmtBRL(K.projecao)}</div><div class="kpi-sub">${K.projecao>=K.metaGeral?'🟢':'🔴'} ${Math.round(K.projecao/K.metaGeral*100)}% da meta | Média ${fmtBRL(K.mediaDiaria)}/dia</div></div>
+    </div>`;
+
+  // ORPHANS
+  if (D.orphans.length > 0) {
+    const names = D.orphans.slice(0,5).map(c=>`<strong>${c.nome}</strong> (${c.dias}d)`).join(' · ');
+    document.getElementById('orphanSection').innerHTML = `
+      <div class="orphan-alert"><div style="font-size:14px;font-weight:800;color:var(--red-primary);margin-bottom:10px">⚠ ALERTA: ${D.orphans.length} clientes sem vendedor (vendedoras desligadas)</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${names}<br>Ação: redistribuir carteira para a equipe ativa.</div></div>`;
+  }
+
+  // RFM
+  const R = D.rfm; const RR = D.rfmRecencia; const total = K.carteiraTotal;
+  document.getElementById('rfmSection').innerHTML = `
+    <div class="section-title">Matriz de Clientes — Ciclo de Vida</div>
+    <div class="rfm-grid">
+      <div class="rfm-card animated" style="border-color:var(--green)"><div class="rfm-bar" style="background:var(--green)"></div><div class="rfm-icon">🟢</div><div class="rfm-count" style="color:var(--green)">${R.ativos.length}</div><div class="rfm-label">Ativos</div><div class="rfm-desc">Últimos 20 dias</div><div class="rfm-pct" style="color:var(--green)">${(R.ativos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.ativos} dias</strong></div></div>
+      <div class="rfm-card animated" style="border-color:var(--yellow)"><div class="rfm-bar" style="background:var(--yellow)"></div><div class="rfm-icon">🟡</div><div class="rfm-count" style="color:var(--yellow)">${R.prestes.length}</div><div class="rfm-label">Prestes a Hibernar</div><div class="rfm-desc">21–35 dias</div><div class="rfm-pct" style="color:var(--yellow)">${(R.prestes.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.prestes} dias</strong></div></div>
+      <div class="rfm-card animated" style="border-color:var(--orange)"><div class="rfm-bar" style="background:var(--orange)"></div><div class="rfm-icon">🟠</div><div class="rfm-count" style="color:var(--orange)">${R.hibernando.length}</div><div class="rfm-label">Hibernando</div><div class="rfm-desc">36–60 dias</div><div class="rfm-pct" style="color:var(--orange)">${(R.hibernando.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.hibernando} dias</strong></div></div>
+      <div class="rfm-card animated" style="border-color:var(--red-primary)"><div class="rfm-bar" style="background:var(--red-primary)"></div><div class="rfm-icon">🔴</div><div class="rfm-count" style="color:var(--red-primary)">${R.perdidos.length}</div><div class="rfm-label">Perdidos</div><div class="rfm-desc">60+ dias</div><div class="rfm-pct" style="color:var(--red-primary)">${(R.perdidos.length/total*100).toFixed(1)}%</div><div class="rfm-extra">Recência: <strong>${RR.perdidos} dias</strong></div></div>
+    </div>
+    <div class="meta-section" style="margin-top:14px">
+      <div class="meta-card"><div class="meta-header"><div class="meta-title">🟡 Prestes a Hibernar — Por Vendedor</div></div><div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${Object.entries(D.prestesPorVend).map(([v,n])=>`${v} (${n})`).join(' · ')||'Nenhum'}</div></div>
+      <div class="meta-card"><div class="meta-header"><div class="meta-title">🔴 Perdidos — Por Vendedor</div></div><div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${Object.entries(D.perdidosPorVend).map(([v,n])=>`${v} (${n})`).join(' · ')||'Nenhum'}</div></div>
+    </div>`;
+
+  // METAS POR ENTREPOSTO com projeção
+  const entConfig = [
+    {key:'Vita Frangos',icon:'🐔',label:'Vita Frangos (ITP)',metaKey:'vita'},
+    {key:'Jampac',icon:'📦',label:'Jampac (JPA)',metaKey:'jampac'},
+    {key:'Frigosul',icon:'🥩',label:'Frigosul (SUL)',metaKey:'frigosul'},
+    {key:'Korisco',icon:'🐔',label:'Korisco (KRC)',metaKey:'korisco'}
+  ];
+  let metaHtml = '<div class="section-title">Metas por Entreposto</div><div class="meta-section">';
+  entConfig.forEach(ec => {
+    const ed = D.fatEnt[ec.key] || {fat:0,kg:0};
+    const meta = D.metasTotal[ec.metaKey] || 0;
+    const pct = meta > 0 ? Math.round(ed.fat/meta*1000)/10 : 0;
+    const proj = K.diasUteisPassed > 0 ? (ed.fat/K.diasUteisPassed)*DIAS_UTEIS_MES : 0;
+    const projPct = meta > 0 ? Math.round(proj/meta*100) : 0;
+    const projOk = projPct >= 100;
+    const projClose = projPct >= 85;
+    const projColor = projOk ? 'var(--green)' : projClose ? 'var(--yellow)' : 'var(--red-primary)';
+    const projIcon = projOk ? '🟢' : projClose ? '🟡' : '🔴';
+    const projLabel = projOk ? 'Projeção acima da meta' : projClose ? 'Projeção apertada' : 'Projeção abaixo da meta';
+    const barW = Math.min(pct * (100/18), 100); // normalize: 18% expected at day 4
+    metaHtml += `<div class="meta-card animated">
+      <div class="meta-header"><div class="meta-title">${ec.icon} ${ec.label}</div><div class="meta-pct" style="color:${pctColor(pct)}">${pct}%</div></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:linear-gradient(90deg,${pct>=18?'var(--green),#16A34A':pct>=12?'var(--yellow),#B8860B':'var(--red-primary),var(--red-dark)'})"></div></div>
+      <div class="meta-details"><span>${fmtBRL(ed.fat)}</span><span>Meta: ${fmtBRL(meta)}</span><span>Gap: ${fmtBRL(meta-ed.fat)}</span></div>
+      <div class="proj-badge" style="background:${projOk?'var(--green-bg)':projClose?'var(--yellow-bg)':'rgba(212,43,43,0.1)'};color:${projColor}">${projIcon} ${projLabel} — Proj: ${fmtBRL(proj)} (${projPct}%)</div>
+    </div>`;
+  });
+  metaHtml += '</div>';
+  document.getElementById('metaSection').innerHTML = metaHtml;
+
+  // ABC
+  abcState.data = D.abcData;
+  const abcKeys = Object.keys(D.abcData);
+  abcState.tab = abcKeys[0] || null;
+  let abcTabsHtml = abcKeys.map((k,i) => `<div class="abc-tab${i===0?' active':''}" data-tab="${k}">${k}</div>`).join('');
+  document.getElementById('abcSection').innerHTML = `
+    <div class="section-title">Curva ABC de Produtos — Por Volume (Kg)</div>
+    <div class="chart-card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div class="chart-title" style="margin-bottom:0">Produtos por Entreposto</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="abc-tabs" id="abcTabs">${abcTabsHtml}</div>
+          <div class="filter-divider" style="height:24px"></div>
+          <div class="toggle-group" id="expiryToggle">
+            <div class="toggle-btn active" data-filter="all">Todos</div>
+            <div class="toggle-btn" data-filter="slow">⚠ Giro Baixo</div>
+          </div>
+        </div>
+      </div>
+      <div class="abc-summary" id="abcSummary"></div>
+      <div class="abc-scroll"><table id="abcTable"><thead><tr><th>Curva</th><th>Produto</th><th>Kg Entregue</th><th>% Indiv.</th><th>% Acum.</th><th>Status</th></tr></thead><tbody id="abcBody"></tbody></table></div>
+    </div>`;
+  document.querySelectorAll('.abc-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.abc-tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); abcState.tab = t.dataset.tab; renderABC();
+  }));
+  document.querySelectorAll('#expiryToggle .toggle-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#expiryToggle .toggle-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); abcState.filter = b.dataset.filter; renderABC();
+  }));
+  renderABC();
+
+  // DAILY CHART
+  const dates = Object.keys(D.fatDiario).sort();
+  const maxD = Math.max(...Object.values(D.fatDiario));
+  let dailyBars = '';
+  dates.forEach(d => {
+    const v = D.fatDiario[d];
+    const h = maxD > 0 ? v/maxD*145 : 0;
+    const clr = v >= 50000 ? 'var(--green)' : v >= 30000 ? 'var(--blue-primary)' : 'var(--yellow)';
+    const day = d.split('-')[2];
+    dailyBars += `<div class="bar-col"><span class="bar-value">${fmtBRL(v)}</span><div class="bar" style="height:${h}px;background:${clr}"></div><span class="bar-label">${day}/04</span></div>`;
+  });
+  document.getElementById('dailySection').innerHTML = `
+    <div class="section-title">Faturamento Diário</div>
+    <div class="chart-card"><div class="chart-title">Faturamento por Dia — Abril/2026</div><div class="bar-chart">${dailyBars}</div></div>`;
+
+  // RANKING
+  let rankHtml = `<div class="section-title">Ranking — Equipe Victória</div>
+    <div class="table-card"><div class="table-header-bar"><div class="table-title">Performance Individual</div><span style="font-size:11px;color:var(--text-muted)">Passe o mouse no nome para detalhes</span></div>
+    <table><thead><tr><th>#</th><th>Vendedor</th><th>Faturamento</th><th>% Meta</th><th>Projeção</th><th>Positivação</th><th>Ticket Médio</th><th>Kilos</th><th>Status</th></tr></thead><tbody>`;
+
+  D.vendorList.forEach((v,i) => {
+    const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const st = v.pctMeta >= 12 ? 'green' : v.pctMeta >= 10 ? 'yellow' : 'red';
+    const sl = st==='green'?'Acima':st==='yellow'?'Na faixa':'Abaixo';
+    const pc = 'pill-'+st;
+    const pclr = st==='green'?'var(--green)':st==='yellow'?'var(--yellow)':'var(--red-primary)';
+    const projIcon = v.projPct >= 100 ? '🟢' : v.projPct >= 85 ? '🟡' : '🔴';
+    let alertMsg = '';
+    if (v.top3Pct > 50) alertMsg += `⚠ ${v.top3Pct}% do fat. em 3 clientes. `;
+    if (v.riskScore >= 60) alertMsg += 'Risco crítico. ';
+    else if (v.riskScore >= 40) alertMsg += 'Diversificar carteira. ';
+    else alertMsg += 'Boa distribuição. ';
+    const alertBg = v.riskScore>=60?'rgba(212,43,43,0.08)':v.riskScore>=20?'rgba(212,155,11,0.08)':'rgba(27,158,75,0.08)';
+    const alertClr = v.riskScore>=60?'var(--red-primary)':v.riskScore>=20?'var(--yellow)':'var(--green)';
+    let entHtml = Object.entries(v.entrepostos).map(([k,e])=>`<strong>${k}</strong>: ${fmtBRL(e.fat)}`).join(' · ');
+
+    rankHtml += `<tr>
+      <td><span class="rank-badge ${rc}">${i+1}</span></td>
+      <td class="vendor-name-cell" style="font-weight:700">
+        ${v.name}
+        <div class="vendor-tooltip">
+          <div class="tt-header">${v.name}</div>
+          <div class="tt-grid">
+            <div class="tt-item"><div class="tl">Clientes Atendidos</div><div class="tv">${v.nClientes}</div></div>
+            <div class="tt-item"><div class="tl">Carteira Total</div><div class="tv">${v.carteira}</div></div>
+            <div class="tt-item"><div class="tl">Top 3 = % Fat.</div><div class="tv" style="color:${v.top3Pct>50?'var(--red-primary)':v.top3Pct>35?'var(--yellow)':'var(--green)'}">${v.top3Pct}%</div></div>
+            <div class="tt-item"><div class="tl">Nº Pedidos</div><div class="tv">${v.nPedidos}</div></div>
+            <div class="tt-full"><div class="tl">Top 3 Clientes</div><div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5">${v.top3Names}</div></div>
+            <div class="tt-full" style="border-top:none;margin-top:4px"><div class="tl">Fat. por Entreposto</div><div style="margin-top:4px;font-size:11px">${entHtml}</div></div>
+            <div class="tt-full" style="border-top:none;margin-top:4px">
+              <div style="display:flex;justify-content:space-between"><span class="tl">Taxa de Risco</span><span style="font-size:12px;font-weight:700;color:${v.riskColor}">${v.riskLabel} (${v.riskScore}%)</span></div>
+              <div class="risk-track"><div class="risk-fill" style="width:${v.riskScore}%;background:${v.riskColor}"></div></div>
+            </div>
+            <div class="tt-full" style="border-top:none;margin-top:4px"><div class="tt-alert" style="background:${alertBg};color:${alertClr}">${alertMsg}</div></div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:'Space Mono';font-weight:700">${fmtBRL(v.fat)}</td>
+      <td style="font-family:'Space Mono';font-weight:700;color:${pclr}">${v.pctMeta}%</td>
+      <td style="font-size:12px">${projIcon} ${v.projPct}%</td>
+      <td>${v.positivacao}%</td>
+      <td style="font-family:'Space Mono'">${fmtBRL(v.ticketMedio)}</td>
+      <td style="font-family:'Space Mono'">${fmtKg(v.kg)}</td>
+      <td><span class="pill ${pc}">${sl}</span></td>
+    </tr>`;
+  });
+  rankHtml += '</tbody></table></div>';
+  document.getElementById('rankingSection').innerHTML = rankHtml;
+
+  // PROJEÇÃO
+  document.getElementById('projectionSection').innerHTML = `
+    <div class="section-title">Projeção de Fechamento</div>
+    <div class="meta-section">
+      <div class="meta-card animated"><div class="meta-header"><div class="meta-title">📈 Projeção no Ritmo Atual</div><div class="meta-pct" style="color:${K.projecao>=K.metaGeral?'var(--green)':'var(--yellow)'}">${fmtBRL(K.projecao)}</div></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(K.projecao/K.metaGeral*100,100)}%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div></div>
+      <div class="meta-details"><span>Média: ${fmtBRL(K.mediaDiaria)}/dia</span><span>Meta: ${fmtBRL(K.metaGeral)}</span><span>Gap: ${fmtBRL(K.metaGeral-K.projecao)}</span></div></div>
+      <div class="meta-card animated"><div class="meta-header"><div class="meta-title">🎯 Necessário p/ Bater Meta</div><div class="meta-pct" style="color:var(--red-primary)">${fmtBRL(K.vendaDiariaNecessaria)}/dia</div></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${K.pctMeta}%;background:linear-gradient(90deg,var(--red-primary),var(--red-dark))"></div></div>
+      <div class="meta-details"><span>Dias úteis: ${K.diasRestantes}</span><span>Falta: ${fmtBRL(K.metaGeral-K.totalFat)}</span><span>Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES}</span></div></div>
+    </div>`;
+}
+
+function renderABC() {
+  const d = abcState.data[abcState.tab];
+  if (!d) return;
+  const prods = abcState.filter === 'slow' ? d.products.filter(p=>p.curva==='C') : d.products;
+  const body = document.getElementById('abcBody');
+  body.innerHTML = prods.map(p => {
+    const cc = p.curva==='A'?'var(--green)':p.curva==='B'?'var(--yellow)':'var(--text-muted)';
+    const stLabel = p.curva==='A'?'ESSENCIAL':p.curva==='B'?'RELEVANTE':'GIRO BAIXO';
+    const stClass = p.curva==='A'?'pill-green':p.curva==='B'?'pill-yellow':'pill-red';
+    return `<tr class="${p.curva==='C'?'slow-row':''}">
+      <td><span style="font-family:'Space Mono';font-weight:800;font-size:16px;color:${cc}">${p.curva}</span></td>
+      <td style="font-weight:600">${p.produto}</td>
+      <td style="font-family:'Space Mono';font-weight:700">${p.kg.toLocaleString('pt-BR')} kg</td>
+      <td style="font-family:'Space Mono'">${p.pctInd}%</td>
+      <td style="font-family:'Space Mono'">${p.pctAcum}%</td>
+      <td><span class="pill ${stClass}">${stLabel}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('abcSummary').innerHTML = `
+    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--green)">A</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.a}</strong> SKUs · ~80%</div></div>
+    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--yellow)">B</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.b}</strong> SKUs · ~15%</div></div>
+    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--red-primary)">C</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.c}</strong> SKUs · ~5%</div></div>`;
+}
+
+// AUTO LOAD
+loadAllData();
+</script>
+</body>
+</html>
