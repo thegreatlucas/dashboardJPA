@@ -330,7 +330,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
       data: r[0].split(' ')[0],   // "2026-04-01"
       entCod,
       entreposto: ENT_MAP[entCod] || 'Outros',
-      clienteCod: String(r[2]||'').trim(),
+      clienteCod: String(r[2]||'').replace(/[\.\-\s]/g, ''),
       clienteNome: (r[3]||'').substring(0,35),
       valor: parseBRL(r[4]),
       kg: parseFloat(r[5]) || 0,
@@ -380,7 +380,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
     const vend = (r[2]||'').trim();
     if (!vend) continue;
     const obj = {
-      codigo: r[0],
+      codigo: String(r[0]||'').replace(/[\.\-\s]/g, ''),
       nome: (r[1]||'').substring(0,40),
       vendedorFull: vend,
       vendedor: vend.replace(' (ITA)',''),
