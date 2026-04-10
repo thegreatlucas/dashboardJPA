@@ -135,6 +135,21 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 @media(max-width:768px){.header{padding:14px 16px;flex-direction:column;gap:10px}.filters-bar{padding:12px 16px}.main{padding:16px}.kpi-grid{grid-template-columns:repeat(2,1fr)}.rfm-grid{grid-template-columns:repeat(2,1fr)}.meta-section{grid-template-columns:1fr}.vendor-tooltip{left:auto;right:0;top:100%;transform:none;margin-left:0;margin-top:8px;width:280px}.vendor-tooltip::before{display:none}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .animated{animation:fadeIn 0.4s ease-out both}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:20px}
+.insight-card{background:var(--white);border:1px solid var(--border);border-radius:18px;padding:24px;position:relative;overflow:hidden;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:16px;transition:all 0.3s ease}
+.insight-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--blue-accent)}
+.insight-card::before{content:'';position:absolute;top:0;left:0;width:6px;height:100%;background:var(--blue-primary)}
+.insight-card.warning::before{background:var(--yellow)}
+.insight-card.danger::before{background:var(--red-primary)}
+.insight-card.success::before{background:var(--green)}
+.insight-header{display:flex;align-items:center;gap:14px}
+.insight-icon{font-size:24px;width:48px;height:48px;background:var(--blue-light);border-radius:12px;display:flex;align-items:center;justify-content:center}
+.insight-title{font-size:16px;font-weight:800;color:var(--text-primary)}
+.insight-body{font-size:14px;color:var(--text-secondary);line-height:1.6}
+.insight-footer{margin-top:auto;padding-top:16px;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center}
+.insight-metric{font-family:'Space Mono',monospace;font-size:18px;font-weight:800;color:var(--blue-primary)}
+.insight-tag{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:var(--surface);color:var(--text-muted)}
+.insight-highlight{color:var(--blue-dark);font-weight:700}
 </style>
 </head>
 <body>
@@ -165,6 +180,7 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
   <div id="dailySection"></div>
   <div id="rankingSection"></div>
   <div id="projectionSection"></div>
+  <div id="insightSection"></div>
 </div>
 
 <div class="footer"><strong style="color:var(--blue-primary)">JAMPAC ALIMENTOS</strong> — Dashboard Comercial Automatizada<br>Equipe Victória | Fonte: Google Sheets (tempo real)</div>
@@ -789,7 +805,109 @@ function renderDashboard(D) {
         <div class="meta-details"><span>Dias úteis: ${K.diasRestantes}</span><span>Falta: ${fmtBRL(K.metaGeral-K.totalFat)}</span><span>Dia ${K.diasUteisPassed}/${DIAS_UTEIS_MES}</span></div>
       </div>
     </div>`;
+
+  renderInsights(D);
 }
+
+function renderInsights(D) {
+  const K = D.kpis;
+  const VL = D.vendorList;
+  
+  if (!VL || VL.length === 0) return;
+
+  // 1. Benchmarking (Top Performers - média dos top 3 em faturamento)
+  const top3 = VL.slice(0, 3);
+  const benchmarkPosit = top3.reduce((s, v) => s + v.positivacao, 0) / 3;
+  const benchmarkTM = top3.reduce((s, v) => s + v.ticketMedio, 0) / 3;
+  
+  let insights = [];
+  
+  // Insight 1: Recuperação de Clientes (RFM)
+  const totalHiber = (D.rfm.hibernando?.length || 0) + (D.rfm.perdidos?.length || 0);
+  const potentialRecoveryRevenue = totalHiber * benchmarkTM * 0.15; // Meta conservadora de 15% de recuperação
+  insights.push({
+    title: 'Recuperação de Clientes',
+    body: `Existem <span class="insight-highlight">${totalHiber}</span> clientes em estágio de hibernação ou perdidos. Reativar apenas 15% destes com o ticket médio dos líderes (${fmtBRL(benchmarkTM)}) geraria um faturamento incremental de <span class="insight-highlight">${fmtBRL(potentialRecoveryRevenue)}</span>.`,
+    icon: '🔄',
+    metric: fmtBRL(potentialRecoveryRevenue),
+    tag: 'Oportunidade',
+    class: 'success'
+  });
+  
+  // Insight 2: Abertura de Clientes / Gap de Meta
+  const gapMeta = Math.max(0, K.metaGeral - K.projecao);
+  if (gapMeta > 0) {
+    const ordersNeeded = Math.ceil(gapMeta / benchmarkTM);
+    insights.push({
+      title: 'Abertura de Clientes p/ Meta',
+      body: `Para cobrir o gap de <span class="insight-highlight">${fmtBRL(gapMeta)}</span> na projeção mensal do grupo, a equipe precisa abrir ou positivar <span class="insight-highlight">${ordersNeeded}</span> novos pedidos baseados no ticket médio dos líderes.`,
+      icon: '🎯',
+      metric: `${ordersNeeded} pedidos`,
+      tag: 'Urgente',
+      class: 'danger'
+    });
+  } else {
+    insights.push({
+      title: 'Expansão de Mercado',
+      body: `O grupo está batendo a meta projetada! Este é o momento ideal para focar na abertura de novos clientes "Classe A" para consolidar o crescimento e elevar o patamar para o próximo mês.`,
+      icon: '🚀',
+      metric: 'Meta Batida',
+      tag: 'Estratégico',
+      class: 'success'
+    });
+  }
+
+  // Insight 3: Performance Individual (Benchmarking de Positivação)
+  const belowPosit = VL.filter(v => v.positivacao < benchmarkPosit * 0.75 && v.metaFat > 0);
+  if (belowPosit.length > 0) {
+    const names = belowPosit.slice(0, 3).map(v => v.name).join(', ');
+    insights.push({
+      title: 'Foco em Positivação',
+      body: `Vendedores como <span class="insight-highlight">${names}</span> estão com positividade abaixo de 75% da média dos líderes (${benchmarkPosit.toFixed(1)}%). Recomenda-se revisão de rota e foco em clientes inativos da carteira.`,
+      icon: '📊',
+      metric: `${benchmarkPosit.toFixed(1)}% Bench`,
+      tag: 'Performance',
+      class: 'warning'
+    });
+  }
+
+  // Insight 4: Risco de Concentração (Diversificação)
+  const highRiskVendors = VL.filter(v => v.top3Pct > 55);
+  if (highRiskVendors.length > 0) {
+    insights.push({
+      title: 'Risco de Concentração',
+      body: `<span class="insight-highlight">${highRiskVendors.length}</span> vendedores dependem de apenas 3 clientes para >55% do seu faturamento. Diversificar a base é crítico para proteger a receita contra a perda de grandes contas.`,
+      icon: '⚠️',
+      metric: `${highRiskVendors.length} Vendedores`,
+      tag: 'Risco',
+      class: 'warning'
+    });
+  }
+
+  // Render
+  let html = `
+    <div class="section-title">Insights Estratégicos baseados em Dados</div>
+    <div class="insight-grid">`;
+  
+  insights.forEach(ins => {
+    html += `
+      <div class="insight-card ${ins.class} animated">
+        <div class="insight-header">
+          <div class="insight-icon">${ins.icon}</div>
+          <div class="insight-title">${ins.title}</div>
+        </div>
+        <div class="insight-body">${ins.body}</div>
+        <div class="insight-footer">
+          <span class="insight-tag">${ins.tag}</span>
+          <span class="insight-metric">${ins.metric}</span>
+        </div>
+      </div>`;
+  });
+  
+  html += `</div>`;
+  document.getElementById('insightSection').innerHTML = html;
+}
+
 
 function renderABC() {
   const d = abcState.data[abcState.tab];
