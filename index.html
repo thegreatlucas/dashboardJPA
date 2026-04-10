@@ -94,7 +94,7 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .risk-track{width:100%;height:8px;background:var(--surface);border-radius:4px;overflow:hidden;margin-top:6px}
 .risk-fill{height:100%;border-radius:4px}
 .tt-alert{margin-top:10px;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:600;line-height:1.4}
-.abc-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.abc-tabs{display:flex;gap:8px;flex-wrap:wrap}
 .abc-tab{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px}
 .abc-tab.active{background:var(--blue-primary);color:white;border-color:var(--blue-primary)}
 .abc-tab:hover:not(.active){border-color:var(--blue-primary);color:var(--blue-primary)}
@@ -104,7 +104,8 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .toggle-btn:last-child{border-radius:0 8px 8px 0}
 .toggle-btn.active{background:var(--red-primary);color:white;border-color:var(--red-primary)}
 .abc-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.abc-summary-item{background:var(--surface);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)}
+.abc-summary-item{background:var(--surface);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border);cursor:pointer;transition:all 0.2s}
+.abc-summary-item:hover{border-color:var(--blue-primary);transform:translateY(-2px)}
 .abc-letter{font-size:24px;font-weight:800;font-family:'Space Mono',monospace;margin-bottom:4px}
 .abc-info{font-size:11px;color:var(--text-muted)}
 .abc-scroll{max-height:400px;overflow-y:auto}
@@ -246,7 +247,7 @@ async function fetchSheet(sheetKey) {
   return parseCSV(text);
 }
 
-let abcState = { tab: null, filter: 'all', data: {} };
+let abcState = { tab: null, filter: 'all', data: {}, curva: 'all' };
 
 // ============================================================
 // LOAD
@@ -706,7 +707,8 @@ function renderDashboard(D) {
 function renderABC() {
   const d = abcState.data[abcState.tab];
   if (!d) return;
-  const prods = abcState.filter === 'slow' ? d.products.filter(p=>p.curva==='C') : d.products;
+  let prods = abcState.filter === 'slow' ? d.products.filter(p=>p.curva==='C') : d.products;
+  if (abcState.curva !== 'all') prods = prods.filter(p => p.curva === abcState.curva);
   const body  = document.getElementById('abcBody');
   body.innerHTML = prods.map(p => {
     const cc      = p.curva==='A'?'var(--green)':p.curva==='B'?'var(--yellow)':'var(--text-muted)';
@@ -722,9 +724,17 @@ function renderABC() {
     </tr>`;
   }).join('');
   document.getElementById('abcSummary').innerHTML = `
-    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--green)">A</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.a}</strong> SKUs · ~80%</div></div>
-    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--yellow)">B</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.b}</strong> SKUs · ~15%</div></div>
-    <div class="abc-summary-item"><div class="abc-letter" style="color:var(--red-primary)">C</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.c}</strong> SKUs · ~5%</div></div>`;
+    <div class="abc-summary-item" data-curva="A" style="border-color:${abcState.curva==='A'?'var(--green)':'var(--border)'};background:${abcState.curva==='A'?'var(--green-bg)':'var(--surface)'}"><div class="abc-letter" style="color:var(--green)">A</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.a}</strong> SKUs · ~80%</div></div>
+    <div class="abc-summary-item" data-curva="B" style="border-color:${abcState.curva==='B'?'var(--yellow)':'var(--border)'};background:${abcState.curva==='B'?'var(--yellow-bg)':'var(--surface)'}"><div class="abc-letter" style="color:var(--yellow)">B</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.b}</strong> SKUs · ~15%</div></div>
+    <div class="abc-summary-item" data-curva="C" style="border-color:${abcState.curva==='C'?'var(--red-primary)':'var(--border)'};background:${abcState.curva==='C'?'rgba(212,43,43,0.1)':'var(--surface)'}"><div class="abc-letter" style="color:var(--red-primary)">C</div><div class="abc-info"><strong style="color:var(--text-primary)">${d.c}</strong> SKUs · ~5%</div></div>`;
+  
+  document.querySelectorAll('.abc-summary-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const c = item.dataset.curva;
+      abcState.curva = abcState.curva === c ? 'all' : c;
+      renderABC();
+    });
+  });
 }
 
 // AUTO LOAD
