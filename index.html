@@ -497,21 +497,26 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
   rfm.hibernando.forEach(c => clientBucket[c.codigo] = 'hibernando');
   rfm.perdidos.forEach(c => clientBucket[c.codigo] = 'perdidos');
 
+  const globalTM = ticketMedio;
   const rfmFAT = { ativos: 0, prestes: 0, hibernando: 0, perdidos: 0 };
-  const rfmPedidos = { ativos: 0, prestes: 0, hibernando: 0, perdidos: 0 };
+  const rfmClientesCart = { ativos: new Set(), prestes: new Set(), hibernando: new Set(), perdidos: new Set() };
 
   pedidos.forEach(p => {
     const b = clientBucket[p.clienteCod];
-    if (b) { rfmFAT[b] += p.valor; rfmPedidos[b]++; }
+    if (b) { 
+      rfmFAT[b] += p.valor; 
+      rfmClientesCart[b].add(p.clienteCod);
+    }
   });
 
   const rfmMetrics = {};
   ['ativos','prestes','hibernando','perdidos'].forEach(b => {
     const fat = rfmFAT[b];
-    const ped = rfmPedidos[b];
-    const rep = totalFat > 0 ? (fat / totalFat * 100) : 0;
-    const tm = ped > 0 ? fat / ped : 0;
-    rfmMetrics[b] = { share: rep, ticket: tm };
+    const totalClientesBucket = rfm[b].length;
+    const comps = rfmClientesCart[b].size;
+    const semCompra = Math.max(0, totalClientesBucket - comps);
+    const perda = semCompra * globalTM;
+    rfmMetrics[b] = { fat, perda };
   });
 
   // ---- FAT DIÁRIO ----
@@ -620,22 +625,22 @@ function renderDashboard(D) {
     <div class="rfm-grid">
       <div class="rfm-card animated" style="border-color:var(--green)">
         <div class="rfm-bar" style="background:var(--green)"></div><div class="rfm-icon">🟢</div><div class="rfm-count" style="color:var(--green)">${R.ativos.length}</div><div class="rfm-label">Ativos</div><div class="rfm-desc">Últimos 20 dias</div><div class="rfm-pct" style="color:var(--green)">${(R.ativos.length/total*100).toFixed(1)}%</div>
-        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.ativos}d</strong></div><div><span>Share FAT</span><strong>${D.rfmMetrics.ativos.share.toFixed(1)}%</strong></div><div><span>Ticket</span><strong>${fmtBRL(D.rfmMetrics.ativos.ticket)}</strong></div></div>
+        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.ativos}d</strong></div><div><span>Faturado Mês</span><strong>${fmtBRL(D.rfmMetrics.ativos.fat)}</strong></div><div><span>A Faturar (Est.)</span><strong>${fmtBRL(D.rfmMetrics.ativos.perda)}</strong></div></div>
         <div class="rfm-tooltip rtt-edge-l"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--green);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Ativos</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.ativos,'var(--green)')}</div></div>
       </div>
       <div class="rfm-card animated" style="border-color:var(--yellow)">
         <div class="rfm-bar" style="background:var(--yellow)"></div><div class="rfm-icon">🟡</div><div class="rfm-count" style="color:var(--yellow)">${R.prestes.length}</div><div class="rfm-label">Prestes a Hibernar</div><div class="rfm-desc">21–35 dias</div><div class="rfm-pct" style="color:var(--yellow)">${(R.prestes.length/total*100).toFixed(1)}%</div>
-        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.prestes}d</strong></div><div><span>Share FAT</span><strong>${D.rfmMetrics.prestes.share.toFixed(1)}%</strong></div><div><span>Ticket</span><strong>${fmtBRL(D.rfmMetrics.prestes.ticket)}</strong></div></div>
+        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.prestes}d</strong></div><div><span>Faturado Mês</span><strong>${fmtBRL(D.rfmMetrics.prestes.fat)}</strong></div><div><span>Risco Estimado</span><strong>${fmtBRL(D.rfmMetrics.prestes.perda)}</strong></div></div>
         <div class="rfm-tooltip rtt-prestes"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--yellow);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Prestes a Hibernar</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.prestes,'var(--yellow)')}</div></div>
       </div>
       <div class="rfm-card animated" style="border-color:var(--orange)">
         <div class="rfm-bar" style="background:var(--orange)"></div><div class="rfm-icon">🟠</div><div class="rfm-count" style="color:var(--orange)">${R.hibernando.length}</div><div class="rfm-label">Hibernando</div><div class="rfm-desc">36–60 dias</div><div class="rfm-pct" style="color:var(--orange)">${(R.hibernando.length/total*100).toFixed(1)}%</div>
-        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.hibernando}d</strong></div><div><span>Share FAT</span><strong>${D.rfmMetrics.hibernando.share.toFixed(1)}%</strong></div><div><span>Ticket</span><strong>${fmtBRL(D.rfmMetrics.hibernando.ticket)}</strong></div></div>
+        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.hibernando}d</strong></div><div><span>Faturado Mês</span><strong>${fmtBRL(D.rfmMetrics.hibernando.fat)}</strong></div><div><span>Perda (Est.)</span><strong>${fmtBRL(D.rfmMetrics.hibernando.perda)}</strong></div></div>
         <div class="rfm-tooltip rtt-hiber"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--orange);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Hibernando</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.hibernando,'var(--orange)')}</div></div>
       </div>
       <div class="rfm-card animated" style="border-color:var(--red-primary)">
         <div class="rfm-bar" style="background:var(--red-primary)"></div><div class="rfm-icon">🔴</div><div class="rfm-count" style="color:var(--red-primary)">${R.perdidos.length}</div><div class="rfm-label">Perdidos</div><div class="rfm-desc">60+ dias</div><div class="rfm-pct" style="color:var(--red-primary)">${(R.perdidos.length/total*100).toFixed(1)}%</div>
-        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.perdidos}d</strong></div><div><span>Share FAT</span><strong>${D.rfmMetrics.perdidos.share.toFixed(1)}%</strong></div><div><span>Ticket</span><strong>${fmtBRL(D.rfmMetrics.perdidos.ticket)}</strong></div></div>
+        <div class="rfm-extra"><div><span>Recência</span><strong>${RR.perdidos}d</strong></div><div><span>Faturado Mês</span><strong>${fmtBRL(D.rfmMetrics.perdidos.fat)}</strong></div><div><span>Perda (Est.)</span><strong>${fmtBRL(D.rfmMetrics.perdidos.perda)}</strong></div></div>
         <div class="rfm-tooltip rtt-edge-r"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--red-primary);border-bottom:2px solid var(--blue-light);padding-bottom:6px">Vendedores — Perdidos</div><div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:6px">${formatVend(RV.perdidos,'var(--red-primary)')}</div></div>
       </div>
     </div>`;
