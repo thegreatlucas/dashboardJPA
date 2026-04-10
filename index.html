@@ -73,7 +73,7 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .bar-col .bar-value{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text-secondary);white-space:nowrap}
 .rfm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .rfm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;position:relative;transition:all 0.2s;box-shadow:var(--shadow-sm);cursor:default}
-.rfm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.rfm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);z-index:10}
 .rfm-card:hover .rfm-tooltip{display:block}
 .rfm-tooltip{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--border);border-radius:14px;padding:16px;width:300px;z-index:200;box-shadow:var(--shadow-lg);pointer-events:none;margin-top:12px;text-align:left}
 .rfm-tooltip::before{content:'';position:absolute;left:50%;top:-8px;transform:translateX(-50%) rotate(45deg);width:14px;height:14px;background:var(--card);border-left:2px solid var(--border);border-top:2px solid var(--border)}
