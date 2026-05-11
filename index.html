@@ -374,7 +374,7 @@ function applyAndRender() {
   const startVal = document.getElementById('filterStart').value;
   const endVal = document.getElementById('filterEnd').value;
   const filteredPedidos = filterPedidosByDate(_rawCache.pedidosRaw, startVal, endVal);
-  const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap);
+  const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
   const periodLabel = computePeriodLabel(startVal, endVal);
   renderDashboard(data, periodLabel);
 }
@@ -399,7 +399,28 @@ function setDefaultDateFilter(pedidosRaw) {
 // ============================================================
 // PROCESS
 // ============================================================
-function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
+const MONTHS_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+function findMetaCols(metasRaw, startVal) {
+  const fallback = {geral:1, vita:3, jampac:5, frigosul:7, korisco:9};
+  if (!startVal || !metasRaw || metasRaw.length < 2) return fallback;
+
+  const targetMonth = MONTHS_PT[new Date(startVal + 'T00:00:00').getMonth()];
+
+  // Procura nas linhas 0 e 1 (headers) a coluna que contém o nome do mês
+  for (const rowIdx of [0, 1]) {
+    const row = metasRaw[rowIdx] || [];
+    for (let c = 1; c < row.length; c++) {
+      if ((row[c]||'').toLowerCase().includes(targetMonth)) {
+        // Encontrou: estrutura esperada é geral, vita(+2), jampac(+4), frigosul(+6), korisco(+8)
+        return {geral:c, vita:c+2, jampac:c+4, frigosul:c+6, korisco:c+8};
+      }
+    }
+  }
+  return fallback;
+}
+
+function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
 
   // ---- PEDIDOS ----
   // Colunas: Entrega | Entreposto | Cliente | Nome | Valor Total | Quilos | Vendedor | Cidade
@@ -426,12 +447,12 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
   }
 
   // ---- METAS ----
-  // Linha 0 = headers principais (ABRIL - META GERAL etc.)
+  // Linha 0 = headers principais (ex: ABRIL - META GERAL, MAIO - META GERAL ...)
   // Linha 1 = sub-headers (FAT. / KG)
-  // Linhas 2+ = vendedores
-  // Última linha com nome "METAS" = totais
+  // Linhas 2+ = vendedores; última linha com nome "METAS" = totais
   const metas = {};
   let metasTotal = {geral:0,vita:0,jampac:0,frigosul:0,korisco:0};
+  const mc = findMetaCols(metasRaw, startVal);
 
   for (let i = 2; i < metasRaw.length; i++) {
     const r = metasRaw[i];
@@ -439,11 +460,11 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
     if (!name) continue;
 
     const obj = {
-      geral:    parseBRL(r[1]),
-      vita:     parseBRL(r[3]),
-      jampac:   parseBRL(r[5]),
-      frigosul: parseBRL(r[7]),
-      korisco:  parseBRL(r[9])
+      geral:    parseBRL(r[mc.geral]),
+      vita:     parseBRL(r[mc.vita]),
+      jampac:   parseBRL(r[mc.jampac]),
+      frigosul: parseBRL(r[mc.frigosul]),
+      korisco:  parseBRL(r[mc.korisco])
     };
 
     if (name === 'METAS') {
