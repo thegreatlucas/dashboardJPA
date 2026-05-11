@@ -717,10 +717,16 @@ function renderDashboard(D, periodLabel) {
 
   // ORPHANS
   if (D.orphans.length > 0) {
-    const names = D.orphans.slice(0,5).map(c=>`<strong>${c.nome}</strong> (${c.dias}d)`).join(' · ');
+    const preview = D.orphans.slice(0,5).map(c=>`<strong>${c.nome}</strong> (${c.dias}d)`).join(' · ');
+    const allNames = D.orphans.map(c=>`<div style="padding:4px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between"><span><strong>${c.nome}</strong></span><span style="color:var(--text-muted);font-size:12px;white-space:nowrap;margin-left:12px">${c.dias}d sem compra</span></div>`).join('');
     document.getElementById('orphanSection').innerHTML = `
-      <div class="orphan-alert"><div style="font-size:14px;font-weight:800;color:var(--red-primary);margin-bottom:10px">⚠ ALERTA: ${D.orphans.length} clientes sem vendedor (vendedoras desligadas)</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${names}<br>Ação: redistribuir carteira para a equipe ativa.</div></div>`;
+      <div class="orphan-alert">
+        <div style="font-size:14px;font-weight:800;color:var(--red-primary);margin-bottom:10px">⚠ ALERTA: ${D.orphans.length} clientes sem vendedor (vendedoras desligadas)</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.7" id="orphanPreview">${preview}${D.orphans.length > 5 ? ` <span style="color:var(--text-muted)">e mais ${D.orphans.length-5}...</span>` : ''}</div>
+        <div id="orphanFull" style="display:none;margin-top:10px;font-size:13px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 12px">${allNames}</div>
+        ${D.orphans.length > 5 ? `<button id="orphanToggle" onclick="(function(){var f=document.getElementById('orphanFull'),p=document.getElementById('orphanPreview'),b=document.getElementById('orphanToggle');var open=f.style.display!=='none'?false:true;f.style.display=open?'block':'none';p.style.display=open?'none':'block';b.textContent=open?'▲ Ver menos':'▼ Ver todos os ${D.orphans.length} clientes'})()" style="margin-top:10px;background:none;border:1px solid var(--red-primary);color:var(--red-primary);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Sans\'">▼ Ver todos os ${D.orphans.length} clientes</button>` : ''}
+        <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Ação: redistribuir carteira para a equipe ativa.</div>
+      </div>`;
   } else {
     document.getElementById('orphanSection').innerHTML = '';
   }
