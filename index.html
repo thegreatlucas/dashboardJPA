@@ -402,22 +402,30 @@ function setDefaultDateFilter(pedidosRaw) {
 const MONTHS_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 function findMetaCols(metasRaw, startVal) {
-  const fallback = {geral:1, vita:3, jampac:5, frigosul:7, korisco:9};
-  if (!startVal || !metasRaw || metasRaw.length < 2) return fallback;
+  // Fallback para ABRIL (cols 3,5,7,9,11 após inserção do MAIO em B/C)
+  const FALLBACK = {geral:3, vita:5, jampac:7, frigosul:9, korisco:11};
+  if (!startVal || !metasRaw || metasRaw.length < 2) return FALLBACK;
 
   const targetMonth = MONTHS_PT[new Date(startVal + 'T00:00:00').getMonth()];
+  const header = (metasRaw[0] || []).map(h => (h||'').toLowerCase());
 
-  // Procura nas linhas 0 e 1 (headers) a coluna que contém o nome do mês
-  for (const rowIdx of [0, 1]) {
-    const row = metasRaw[rowIdx] || [];
-    for (let c = 1; c < row.length; c++) {
-      if ((row[c]||'').toLowerCase().includes(targetMonth)) {
-        // Encontrou: estrutura esperada é geral, vita(+2), jampac(+4), frigosul(+6), korisco(+8)
-        return {geral:c, vita:c+2, jampac:c+4, frigosul:c+6, korisco:c+8};
-      }
-    }
-  }
-  return fallback;
+  // Acha coluna META GERAL do mês alvo
+  const geralCol = header.findIndex((h, i) => i > 0 && h.includes(targetMonth));
+  if (geralCol === -1) return FALLBACK;
+
+  // Acha colunas individuais por entreposto (mesmo mês); -1 se não existir
+  const findEnt = (...keys) => {
+    const idx = header.findIndex((h, i) => i > geralCol && h.includes(targetMonth) && keys.some(k => h.includes(k)));
+    return idx > 0 ? idx : -1;
+  };
+
+  return {
+    geral:    geralCol,
+    vita:     findEnt('vita'),
+    jampac:   findEnt('jampac'),
+    frigosul: findEnt('frigosul'),
+    korisco:  findEnt('korisco')
+  };
 }
 
 function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
@@ -460,11 +468,11 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
     if (!name) continue;
 
     const obj = {
-      geral:    parseBRL(r[mc.geral]),
-      vita:     parseBRL(r[mc.vita]),
-      jampac:   parseBRL(r[mc.jampac]),
-      frigosul: parseBRL(r[mc.frigosul]),
-      korisco:  parseBRL(r[mc.korisco])
+      geral:    mc.geral >= 0    ? parseBRL(r[mc.geral])    : 0,
+      vita:     mc.vita >= 0     ? parseBRL(r[mc.vita])     : 0,
+      jampac:   mc.jampac >= 0   ? parseBRL(r[mc.jampac])   : 0,
+      frigosul: mc.frigosul >= 0 ? parseBRL(r[mc.frigosul]) : 0,
+      korisco:  mc.korisco >= 0  ? parseBRL(r[mc.korisco])  : 0
     };
 
     if (name === 'METAS') {
