@@ -319,6 +319,7 @@ async function loadAllData() {
     document.getElementById('updateBadge').textContent = '📡 ' + new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     document.getElementById('dataStatus').innerHTML = '✅ Dados carregados com sucesso';
     document.getElementById('dataStatus').style.color = 'var(--green)';
+    setDefaultDateFilter(pedidosRaw);
     applyAndRender();
   } catch(e) {
     document.getElementById('dataStatus').innerHTML = '❌ Erro: ' + e.message + '<br><small>Verifique se as planilhas estão com acesso público (qualquer pessoa com o link pode visualizar)</small>';
@@ -367,9 +368,16 @@ function applyAndRender() {
   renderDashboard(data, periodLabel);
 }
 
-function setDefaultDateFilter() {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
+function setDefaultDateFilter(pedidosRaw) {
+  let refDate = null;
+  if (pedidosRaw) {
+    for (let i = 1; i < pedidosRaw.length; i++) {
+      const d = pedidosRaw[i][0] ? pedidosRaw[i][0].split(' ')[0] : null;
+      if (d && (!refDate || d > refDate)) refDate = d;
+    }
+  }
+  const ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
+  const y = ref.getFullYear(), m = ref.getMonth();
   const firstDay = new Date(y, m, 1);
   const lastDay = new Date(y, m + 1, 0);
   const fmt = d => d.toISOString().split('T')[0];
@@ -994,7 +1002,6 @@ function renderABC() {
 }
 
 // AUTO LOAD
-setDefaultDateFilter();
 loadAllData();
 </script>
 </body>
