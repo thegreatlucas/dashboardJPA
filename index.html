@@ -334,12 +334,23 @@ function setLoading(msg) {
   document.getElementById('loadingText').textContent = msg;
 }
 
+// Normaliza "dd/mm/yyyy" ou "yyyy-mm-dd" para ISO "yyyy-mm-dd"
+function normDateToISO(raw) {
+  if (!raw) return '';
+  const s = String(raw).split(' ')[0];
+  if (s.includes('/')) {
+    const [d, m, y] = s.split('/');
+    return `${y}-${(m||'').padStart(2,'0')}-${(d||'').padStart(2,'0')}`;
+  }
+  return s;
+}
+
 function filterPedidosByDate(pedidosRaw, startVal, endVal) {
   if (!startVal && !endVal) return pedidosRaw;
   return pedidosRaw.filter((r, i) => {
     if (i === 0) return true;
     if (!r[0]) return true;
-    const rowDate = r[0].split(' ')[0];
+    const rowDate = normDateToISO(r[0]);
     if (startVal && rowDate < startVal) return false;
     if (endVal && rowDate > endVal) return false;
     return true;
@@ -372,7 +383,7 @@ function setDefaultDateFilter(pedidosRaw) {
   let refDate = null;
   if (pedidosRaw) {
     for (let i = 1; i < pedidosRaw.length; i++) {
-      const d = pedidosRaw[i][0] ? pedidosRaw[i][0].split(' ')[0] : null;
+      const d = pedidosRaw[i][0] ? normDateToISO(pedidosRaw[i][0]) : null;
       if (d && (!refDate || d > refDate)) refDate = d;
     }
   }
@@ -401,7 +412,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap) {
     if (EXCLUDED.includes(vendedor)) continue;
     const entCod = (r[1]||'').trim();
     pedidos.push({
-      data: r[0].split(' ')[0],   // "2026-04-01"
+      data: normDateToISO(r[0]),
       entCod,
       entreposto: ENT_MAP[entCod] || 'Outros',
       clienteCod: String(r[2]||'').replace(/[\.\-\s]/g, ''),
