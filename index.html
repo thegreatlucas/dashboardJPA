@@ -922,6 +922,38 @@ function renderDashboard(D, periodLabel) {
   renderInsights(D);
 }
 
+function buildClientExpandHTML(clients, id) {
+  if (!clients || clients.length === 0) return { btn: '', expand: '' };
+  const byVendor = {};
+  clients.forEach(c => {
+    if (!byVendor[c.vendedor]) byVendor[c.vendedor] = [];
+    byVendor[c.vendedor].push(c);
+  });
+  const rows = Object.entries(byVendor)
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([vend, list]) => {
+      const tags = list.sort((a, b) => b.dias - a.dias).map(c =>
+        `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;white-space:nowrap">${c.nome} <span style="color:var(--text-muted);font-weight:400">${c.dias}d</span></span>`
+      ).join('');
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;color:var(--blue-primary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${vend} <span style="color:var(--text-muted);font-weight:500;text-transform:none">(${list.length} clientes)</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${tags}</div>
+      </div>`;
+    }).join('');
+  const expand = `<div id="expand-${id}" style="display:none;border-top:1px solid var(--border-light);margin-top:12px;padding-top:12px;max-height:260px;overflow-y:auto">${rows}</div>`;
+  const btn = `<button id="btn-${id}" onclick="toggleInsightExpand('${id}')" style="align-self:flex-start;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--blue-primary);font-family:'DM Sans';transition:all 0.2s" onmouseover="this.style.background='var(--blue-light)'" onmouseout="this.style.background='none'">Ver mais ▾</button>`;
+  return { btn, expand };
+}
+
+function toggleInsightExpand(id) {
+  const el = document.getElementById('expand-' + id);
+  const btn = document.getElementById('btn-' + id);
+  if (!el) return;
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? 'Ver menos ▴' : 'Ver mais ▾';
+}
+
 function renderInsights(D) {
   const K = D.kpis;
   const VL = D.vendorList;
@@ -937,18 +969,23 @@ function renderInsights(D) {
   
   // Insight 1: Recuperação de Clientes (RFM)
   const totalHiber = (D.rfm.hibernando?.length || 0) + (D.rfm.perdidos?.length || 0);
-  const potentialRecoveryRevenue = totalHiber * benchmarkTM * 0.15; // Meta conservadora de 15% de recuperação
+  const potentialRecoveryRevenue = totalHiber * benchmarkTM * 0.15;
+  const recuperClients = [...(D.rfm.hibernando || []), ...(D.rfm.perdidos || [])];
+  const recuperExpand = buildClientExpandHTML(recuperClients, 'recup');
   insights.push({
     title: 'Recuperação de Clientes',
     body: `Existem <span class="insight-highlight">${totalHiber}</span> clientes em estágio de hibernação ou perdidos. Reativar apenas 15% destes com o ticket médio dos líderes (${fmtBRL(benchmarkTM)}) geraria um faturamento incremental de <span class="insight-highlight">${fmtBRL(potentialRecoveryRevenue)}</span>.`,
     icon: '🔄',
     metric: fmtBRL(potentialRecoveryRevenue),
     tag: 'Oportunidade',
-    class: 'success'
+    class: 'success',
+    expand: recuperExpand
   });
-  
+
   // Insight 2: Abertura de Clientes / Gap de Meta
   const gapMeta = Math.max(0, K.metaGeral - K.projecao);
+  const aberturaClients = [...(D.rfm.prestes || []), ...(D.rfm.hibernando || [])];
+  const aberturaExpand = buildClientExpandHTML(aberturaClients, 'abertura');
   if (gapMeta > 0) {
     const ordersNeeded = Math.ceil(gapMeta / benchmarkTM);
     insights.push({
@@ -957,7 +994,8 @@ function renderInsights(D) {
       icon: '🎯',
       metric: `${ordersNeeded} pedidos`,
       tag: 'Urgente',
-      class: 'danger'
+      class: 'danger',
+      expand: aberturaExpand
     });
   } else {
     insights.push({
@@ -966,7 +1004,8 @@ function renderInsights(D) {
       icon: '🚀',
       metric: 'Meta Batida',
       tag: 'Estratégico',
-      class: 'success'
+      class: 'success',
+      expand: aberturaExpand
     });
   }
 
@@ -1003,6 +1042,7 @@ function renderInsights(D) {
     <div class="insight-grid">`;
   
   insights.forEach(ins => {
+    const hasExpand = ins.expand && ins.expand.btn;
     html += `
       <div class="insight-card ${ins.class} animated">
         <div class="insight-header">
@@ -1010,6 +1050,8 @@ function renderInsights(D) {
           <div class="insight-title">${ins.title}</div>
         </div>
         <div class="insight-body">${ins.body}</div>
+        ${hasExpand ? ins.expand.btn : ''}
+        ${hasExpand ? ins.expand.expand : ''}
         <div class="insight-footer">
           <span class="insight-tag">${ins.tag}</span>
           <span class="insight-metric">${ins.metric}</span>
