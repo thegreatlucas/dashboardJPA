@@ -542,7 +542,8 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal, unf
   const iFat2 = h.findIndex(v => v === 'VALOR_PRODUTO' || v === 'VALOR TOTAL' || v === 'VALOR');
   const iVend = h.findIndex(v => v === 'VENDEDOR');
   const iEnt  = h.findIndex(v => v === 'ENTREPOSTO');
-  const iCli  = h.findIndex(v => v === 'CLIENTE' || v === 'NOME');
+  let iCli = h.findIndex(v => v === 'NOME');
+  if (iCli < 0) iCli = h.findIndex(v => v.includes('CLIENTE') || v.includes('RAZAO'));
   const iKg   = h.findIndex(v => v === 'KG_PRODUTO' || v === 'QUILOS' || v === 'KG');
   const iPos  = h.findIndex(v => v === 'POSITIVAÇÃO' || v === 'POSITIVACAO');
 
@@ -658,10 +659,12 @@ function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli, carteiraRaw) {
     }
     const iCC = hC.findIndex(v => v.includes('CLIENTE') || v.includes('RAZAO'));
     const iCDt = hC.findIndex(v => v.includes('DATA'));
+    const iCVend = hC.findIndex(v => v.includes('VENDEDOR'));
     if (iCC >= 0) {
       for (let i = rowOffset + 1; i < carteiraRaw.length; i++) {
         const cli = (carteiraRaw[i][iCC]||'').trim();
-        if (!cli) continue;
+        const vend = iCVend >= 0 ? (carteiraRaw[i][iCVend]||'').trim() : '';
+        if (!cli || EXCLUDED.includes(vend)) continue;
         if (!clienteData[cli]) clienteData[cli] = { dates: [], fat: 0, count: 0 };
         if (iCDt >= 0) {
           const dateStr = normDateToISO(carteiraRaw[i][iCDt]);
