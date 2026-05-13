@@ -152,6 +152,8 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .insight-highlight{color:var(--blue-dark);font-weight:700}
 .date-input{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans';font-size:12px;color:var(--text-primary);font-weight:600;cursor:pointer;height:34px}
 .date-input:focus{outline:none;border-color:var(--blue-primary)}
+.hist-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:768px){.hist-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -187,6 +189,7 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
   <div id="dailySection"></div>
   <div id="rankingSection"></div>
   <div id="projectionSection"></div>
+  <div id="historicoSection"></div>
   <div id="insightSection"></div>
 </div>
 
@@ -200,6 +203,7 @@ const SHEETS = {
   pedidos:  { id: '1SPPPOYSwbOoy6DaXIdJrZnVVdBuiGf0AOG_ex2-zE9s', gid: 0 },
   metas:    { id: '1J33xcEmb44npqw5sGYVZ9wc1Ng1HUOfubZpj5Pxk_hE', gid: 0 },
   carteira: { id: '1LLjeKtc9cHCebYnOeiYzTXasZ4obVEwJ6xL_9LwRWsQ', gid: 0 },
+  historico:   { id: '191nPTe1rtnfTz4LOd5ge-sWSR7vRYA1R', gid: 667124911 },
   abcJampac:   { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 0 },
   abcVita:     { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 824758089 },
   abcFrigosul: { id: '1APwTff65vQecTZcAroQFvHP7-6HVkRJ1-TEo4tm_udk', gid: 294707846 },
@@ -294,6 +298,9 @@ async function loadAllData() {
   document.getElementById('dataStatus').style.color = 'var(--blue-primary)';
 
   try {
+    setLoading('Carregando histórico...');
+    const historicoRaw = await fetchSheet('historico');
+
     setLoading('Carregando pedidos...');
     const pedidosRaw = await fetchSheet('pedidos');
 
@@ -312,7 +319,7 @@ async function loadAllData() {
     ]);
 
     _rawCache = {
-      pedidosRaw, metasRaw, carteiraRaw,
+      pedidosRaw, metasRaw, carteiraRaw, historicoRaw,
       abcRawMap: {'JAMPAC':abcJampac,'VITA FRANGOS':abcVita,'FRIGOSUL':abcFrigosul,'KORISCO':abcKorisco}
     };
 
@@ -377,6 +384,7 @@ function applyAndRender() {
   const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
   const periodLabel = computePeriodLabel(startVal, endVal);
   renderDashboard(data, periodLabel);
+  renderHistorico(parseHistorico(_rawCache.historicoRaw));
 }
 
 function setDefaultDateFilter(pedidosRaw) {
@@ -1013,6 +1021,109 @@ function renderInsights(D) {
   document.getElementById('insightSection').innerHTML = html;
 }
 
+
+// ============================================================
+// HISTÓRICO
+// ============================================================
+function parseHistorico(raw) {
+  if (!raw || raw.length < 3) return [];
+  // row 0: group headers, row 1: sub-headers, rows 2+: data
+  // cols: [0]=empty,[1]=mes,[2]=posit,[3]=metaGeral,[4]=realGeral,[5]=%,
+  //       [6]=metaJampac,[7]=realJampac,[8]=%,[9]=metaVita,[10]=realVita,[11]=%,
+  //       [12]=metaFrigosul,[13]=realFrigosul,[14]=%,[15]=metaKorisco,[16]=realKorisco,[17]=%
+  const months = [];
+  for (let i = 2; i < raw.length; i++) {
+    const r = raw[i];
+    const mesLabel = (r[1] || '').trim();
+    if (!mesLabel) continue;
+    const geral    = parseBRL(r[4]);
+    const posit    = parseInt(r[2]) || 0;
+    if (!geral && !posit) continue;
+    months.push({
+      mesLabel,
+      posit,
+      geral,
+      jampac:   parseBRL(r[7]),
+      vita:     parseBRL(r[10]),
+      frigosul: parseBRL(r[13]),
+      korisco:  parseBRL(r[16])
+    });
+  }
+  return months.slice(-6);
+}
+
+function fmtMesLabel(label) {
+  return label.replace('./', '/').charAt(0).toUpperCase() + label.replace('./', '/').slice(1);
+}
+
+function renderHistorico(months) {
+  const el = document.getElementById('historicoSection');
+  if (!months || months.length === 0) { el.innerHTML = ''; return; }
+
+  const CHART_H = 150;
+  const ENT_COLORS = {
+    jampac:   '#1A56A8',
+    vita:     '#1B9E4B',
+    frigosul: '#E06B1F',
+    korisco:  '#9333EA'
+  };
+  const ENT_LABELS = { jampac:'Jampac', vita:'Vita Frangos', frigosul:'Frigosul', korisco:'Korisco' };
+
+  const maxGeral = Math.max(...months.map(m => m.geral), 1);
+  const maxPosit = Math.max(...months.map(m => m.posit), 1);
+
+  // Faturamento stacked bars
+  let fatBars = '';
+  months.forEach(m => {
+    const totalH = m.geral > 0 ? (m.geral / maxGeral) * CHART_H : 0;
+    const segs = [
+      { val: m.jampac,   color: ENT_COLORS.jampac },
+      { val: m.vita,     color: ENT_COLORS.vita },
+      { val: m.frigosul, color: ENT_COLORS.frigosul },
+      { val: m.korisco,  color: ENT_COLORS.korisco }
+    ].filter(s => s.val > 0);
+    const sumSegs = segs.reduce((s, e) => s + e.val, 0) || 1;
+    const segHtml = segs.map(s =>
+      `<div style="height:${(s.val / sumSegs * totalH).toFixed(1)}px;background:${s.color};width:100%;flex-shrink:0"></div>`
+    ).join('');
+    fatBars += `<div class="bar-col">
+      <span class="bar-value" style="font-size:9px">${fmtBRL(m.geral)}</span>
+      <div style="width:100%;max-width:52px;border-radius:6px 6px 0 0;overflow:hidden;display:flex;flex-direction:column-reverse;flex-shrink:0">${segHtml}</div>
+      <span class="bar-label">${fmtMesLabel(m.mesLabel)}</span>
+    </div>`;
+  });
+
+  const legend = Object.entries(ENT_LABELS).map(([k, label]) =>
+    `<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:${ENT_COLORS[k]};flex-shrink:0"></div><span style="font-size:11px;color:var(--text-secondary);font-weight:600">${label}</span></div>`
+  ).join('');
+
+  // Positivações bars
+  let positBars = '';
+  months.forEach(m => {
+    const h = m.posit > 0 ? (m.posit / maxPosit) * CHART_H : 0;
+    positBars += `<div class="bar-col">
+      <span class="bar-value">${m.posit > 0 ? m.posit : '—'}</span>
+      <div class="bar" style="height:${h.toFixed(1)}px;background:var(--blue-primary)"></div>
+      <span class="bar-label">${fmtMesLabel(m.mesLabel)}</span>
+    </div>`;
+  });
+
+  el.innerHTML = `
+    <div class="section-title">Histórico — Últimos 6 Meses</div>
+    <div class="hist-grid">
+      <div class="chart-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div class="chart-title" style="margin-bottom:0">Faturamento por Mês</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${legend}</div>
+        </div>
+        <div class="bar-chart" style="height:${CHART_H + 28}px">${fatBars}</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Positivações por Mês <span style="font-size:11px;font-weight:500;color:var(--text-muted)">(clientes atendidos)</span></div>
+        <div class="bar-chart" style="height:${CHART_H + 28}px">${positBars}</div>
+      </div>
+    </div>`;
+}
 
 function renderABC() {
   const d = abcState.data[abcState.tab];
