@@ -517,12 +517,13 @@ function findMetaCols(metasRaw, startVal) {
 function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
   // --- cabeçalho pedidos ---
   const h = (pedidosRaw[0] || []).map(v => (v||'').trim().toUpperCase());
-  const col = name => h.findIndex(v => v === name);
-  const iDate = col('DATA'); const iFat2 = col('VALOR_PRODUTO');
-  const iVend = col('VENDEDOR'); const iEnt = col('ENTREPOSTO');
-  const iCli  = col('CLIENTE');
-  const iKg   = col('KG_PRODUTO');
-  const iPos  = col('POSITIVAÇÃO') !== -1 ? col('POSITIVAÇÃO') : col('POSITIVACAO');
+  const iDate = h.findIndex(v => v === 'DATA' || v === 'ENTREGA');
+  const iFat2 = h.findIndex(v => v === 'VALOR_PRODUTO' || v === 'VALOR TOTAL' || v === 'VALOR');
+  const iVend = h.findIndex(v => v === 'VENDEDOR');
+  const iEnt  = h.findIndex(v => v === 'ENTREPOSTO');
+  const iCli  = h.findIndex(v => v === 'CLIENTE' || v === 'NOME');
+  const iKg   = h.findIndex(v => v === 'KG_PRODUTO' || v === 'QUILOS' || v === 'KG');
+  const iPos  = h.findIndex(v => v === 'POSITIVAÇÃO' || v === 'POSITIVACAO');
 
   // --- KPIs base ---
   let totalFat = 0, totalKg = 0, positivacaoSet = new Set();
@@ -668,11 +669,23 @@ function parseABC(raw) {
     });
   }
   return result;
-}
-
-// ============================================================
 // HISTORICO
 // ============================================================
+function setDefaultDateFilter(pedidosRaw) {
+  if (!pedidosRaw || pedidosRaw.length < 2) return;
+  const h = pedidosRaw[0].map(v => (v||'').trim().toUpperCase());
+  const iDate = h.findIndex(v => v === 'DATA' || v === 'ENTREGA');
+  if (iDate < 0) return;
+  const dates = [];
+  for (let i = 1; i < pedidosRaw.length; i++) {
+    if (pedidosRaw[i][iDate]) dates.push(new Date(pedidosRaw[i][iDate]));
+  }
+  if (dates.length === 0) return;
+  const maxDate = new Date(Math.max(...dates));
+  const filter = document.getElementById('dateFilter');
+  if (filter) filter.value = maxDate.toISOString().slice(0, 7);
+}
+
 function parseHistorico(raw) {
   if (!raw || raw.length < 2) return [];
   const h = raw[0].map(v => (v||'').trim().toUpperCase());
