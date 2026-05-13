@@ -645,15 +645,27 @@ function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli, carteiraRaw) {
   const hoje = new Date();
   const clienteData = {};
   
-  // 1. Semear com a carteira (se existir) para incluir inativos
+  // 1. Semear com a carteira (se existir) para incluir inativos com histórico real
   if (carteiraRaw && carteiraRaw.length > 1) {
-    const hC = (carteiraRaw[0]||[]).map(v => (v||'').trim().toUpperCase());
+    let hC = [];
+    let rowOffset = 0;
+    for (let i = 0; i < Math.min(5, carteiraRaw.length); i++) {
+      if (carteiraRaw[i].join('').toUpperCase().includes('CLIENTE')) {
+        hC = carteiraRaw[i].map(v => (v||'').trim().toUpperCase());
+        rowOffset = i;
+        break;
+      }
+    }
     const iCC = hC.findIndex(v => v.includes('CLIENTE') || v.includes('RAZAO'));
+    const iCDt = hC.findIndex(v => v.includes('DATA'));
     if (iCC >= 0) {
-      for (let i = 1; i < carteiraRaw.length; i++) {
+      for (let i = rowOffset + 1; i < carteiraRaw.length; i++) {
         const cli = (carteiraRaw[i][iCC]||'').trim();
-        if (cli && !clienteData[cli]) {
-          clienteData[cli] = { dates: [], fat: 0, count: 0 };
+        if (!cli) continue;
+        if (!clienteData[cli]) clienteData[cli] = { dates: [], fat: 0, count: 0 };
+        if (iCDt >= 0) {
+          const dateStr = normDateToISO(carteiraRaw[i][iCDt]);
+          if (dateStr) clienteData[cli].dates.push(dateStr);
         }
       }
     }
