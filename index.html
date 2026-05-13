@@ -430,13 +430,23 @@ function applyAndRender() {
 
 function setDefaultDateFilter(pedidosRaw) {
   let refDate = null;
-  if (pedidosRaw) {
-    for (let i = 1; i < pedidosRaw.length; i++) {
-      const d = pedidosRaw[i][0] ? normDateToISO(pedidosRaw[i][0]) : null;
-      if (d && (!refDate || d > refDate)) refDate = d;
+  if (pedidosRaw && pedidosRaw.length > 1) {
+    const h = pedidosRaw[0].map(v => (v||'').trim().toUpperCase());
+    const iDate = h.findIndex(v => v === 'DATA' || v === 'ENTREGA');
+    if (iDate >= 0) {
+      for (let i = 1; i < pedidosRaw.length; i++) {
+        const str = (pedidosRaw[i][iDate]||'').trim();
+        if (!str) continue;
+        const d = normDateToISO(str);
+        if (d) {
+          const dDate = new Date(d + 'T00:00:00');
+          if (!isNaN(dDate) && (!refDate || d > refDate)) refDate = d;
+        }
+      }
     }
   }
-  const ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
+  let ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
+  if (isNaN(ref)) ref = new Date();
   const y = ref.getFullYear(), m = ref.getMonth();
   const firstDay = new Date(y, m, 1);
   const lastDay  = new Date(y, m + 1, 0);
@@ -669,22 +679,11 @@ function parseABC(raw) {
     });
   }
   return result;
+}
+
+// ============================================================
 // HISTORICO
 // ============================================================
-function setDefaultDateFilter(pedidosRaw) {
-  if (!pedidosRaw || pedidosRaw.length < 2) return;
-  const h = pedidosRaw[0].map(v => (v||'').trim().toUpperCase());
-  const iDate = h.findIndex(v => v === 'DATA' || v === 'ENTREGA');
-  if (iDate < 0) return;
-  const dates = [];
-  for (let i = 1; i < pedidosRaw.length; i++) {
-    if (pedidosRaw[i][iDate]) dates.push(new Date(pedidosRaw[i][iDate]));
-  }
-  if (dates.length === 0) return;
-  const maxDate = new Date(Math.max(...dates));
-  const filter = document.getElementById('dateFilter');
-  if (filter) filter.value = maxDate.toISOString().slice(0, 7);
-}
 
 function parseHistorico(raw) {
   if (!raw || raw.length < 2) return [];
