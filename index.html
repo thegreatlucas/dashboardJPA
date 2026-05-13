@@ -820,20 +820,20 @@ function renderFaturamentoDia(fatDia, periodLabel) {
     const pct = Math.round(fat / maxFat * 100);
     const d = new Date(dStr + 'T00:00:00');
     const diaSemana = DIAS_SEMANA[d.getDay()];
-    const label = \`\${d.getDate()}/\${d.getMonth()+1}<br><span style="font-size:8px;color:var(--text-muted)">\${diaSemana}</span>\`;
-    return \`<div class="bar-col">
-      <div class="bar-value">\${fmtBRL(fat)}</div>
-      <div class="bar" style="height:\${pct}%;background:linear-gradient(180deg,var(--blue-accent),var(--blue-dark))"></div>
-      <div class="bar-label">\${label}</div>
-    </div>\`;
+    const label = `${d.getDate()}/${d.getMonth()+1}<br><span style="font-size:8px;color:var(--text-muted)">${diaSemana}</span>`;
+    return `<div class="bar-col">
+      <div class="bar-value">${fmtBRL(fat)}</div>
+      <div class="bar" style="height:${pct}%;background:linear-gradient(180deg,var(--blue-accent),var(--blue-dark))"></div>
+      <div class="bar-label">${label}</div>
+    </div>`;
   }).join('');
 
-  sec.innerHTML = \`
-    <div class="section-title">📊 Faturamento Diário — \${periodLabel ? periodLabel : ''}</div>
+  sec.innerHTML = `
+    <div class="section-title">📊 Faturamento Diário — ${periodLabel ? periodLabel : ''}</div>
     <div class="chart-card animated">
       <div class="chart-title">Faturamento por Dia</div>
-      <div class="bar-chart" style="overflow-x:auto;padding-bottom:50px;min-height:220px;">\${bars}</div>
-    </div>\`;
+      <div class="bar-chart" style="overflow-x:auto;padding-bottom:50px;min-height:220px;">${bars}</div>
+    </div>`;
 }
 
 // ============================================================
