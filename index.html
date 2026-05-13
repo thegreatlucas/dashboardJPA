@@ -702,9 +702,9 @@ function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli, carteiraRaw) {
     const ticket = d.count > 0 ? d.fat / d.count : 0;
     rfmDetails[cli] = { diasSemCompra, freq, ticket, fat: d.fat, lastDate };
     
-    if (diasSemCompra <= 30) rfm.ativos.push(cli);
-    else if (diasSemCompra <= 60) rfm.prestesPerder.push(cli);
-    else if (diasSemCompra <= 90) rfm.hibernando.push(cli);
+    if (diasSemCompra <= 15) rfm.ativos.push(cli);
+    else if (diasSemCompra <= 30) rfm.prestesPerder.push(cli);
+    else if (diasSemCompra <= 40) rfm.hibernando.push(cli);
     else rfm.perdidos.push(cli);
   }
   rfm._details = rfmDetails;
@@ -961,13 +961,13 @@ function renderRFM(rfm) {
   const sec = document.getElementById('rfmSection');
   const total = rfm._total || 1;
   const categories = [
-    { key:'ativos', label:'Ativos', icon:'🟢', desc:'Compraram nos últimos 30 dias', color:'var(--green)', barClass:'', tooltipClass:'rtt-edge-l',
+    { key:'ativos', label:'Ativos', icon:'🟢', desc:'Compraram nos últimos 15 dias', color:'var(--green)', barClass:'', tooltipClass:'rtt-edge-l',
       extraLabel:'Risco de perda', extraVal:'Baixo' },
-    { key:'prestesPerder', label:'Prestes a Perder', icon:'🟡', desc:'31–60 dias sem comprar', color:'var(--yellow)', barClass:'', tooltipClass:'rtt-prestes',
+    { key:'prestesPerder', label:'Prestes a Perder', icon:'🟡', desc:'16–30 dias sem comprar', color:'var(--yellow)', barClass:'', tooltipClass:'rtt-prestes',
       extraLabel:'Risco de perda', extraVal:'Médio' },
-    { key:'hibernando', label:'Hibernando', icon:'🟠', desc:'61–90 dias sem comprar', color:'var(--orange)', barClass:'', tooltipClass:'rtt-hiber',
+    { key:'hibernando', label:'Hibernando', icon:'🟠', desc:'31–40 dias sem comprar', color:'var(--orange)', barClass:'', tooltipClass:'rtt-hiber',
       extraLabel:'Risco de perda', extraVal:'Alto' },
-    { key:'perdidos', label:'Inativos', icon:'🔴', desc:'Mais de 90 dias sem comprar', color:'var(--red-primary)', barClass:'', tooltipClass:'rtt-edge-r',
+    { key:'perdidos', label:'Inativos', icon:'🔴', desc:'Mais de 40 dias sem comprar', color:'var(--red-primary)', barClass:'', tooltipClass:'rtt-edge-r',
       extraLabel:'Status', extraVal:'Inativo' }
   ];
 
