@@ -386,40 +386,46 @@ function computePeriodLabel(startVal, endVal) {
 
 function applyAndRender() {
   if (!_rawCache) return;
-  const startVal = document.getElementById('filterStart').value;
-  const endVal = document.getElementById('filterEnd').value;
-  const filteredPedidos = filterPedidosByDate(_rawCache.pedidosRaw, startVal, endVal);
-  const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
+  try {
+    const startVal = document.getElementById('filterStart').value;
+    const endVal = document.getElementById('filterEnd').value;
+    const filteredPedidos = filterPedidosByDate(_rawCache.pedidosRaw, startVal, endVal);
+    const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
 
-  // Sobrescrever KPIs com dados das novas planilhas agregadas
-  const vs = parseVendorStats(_rawCache.vendorStatsRaw);
-  const kilosTotal = parseKilosTotal(_rawCache.kilosRaw);
-  if (vs.total) {
-    data.kpis.totalFat    = vs.total.valorProduto;
-    data.kpis.metaGeral   = vs.total.metaFat;
-    data.kpis.pctMeta     = vs.total.metaFat > 0 ? Math.round(vs.total.valorProduto / vs.total.metaFat * 1000) / 10 : 0;
-    data.kpis.projecao    = vs.total.projecao;
-    data.kpis.positCount  = vs.total.positivacao;
-    data.kpis.positMeta   = vs.total.positMeta;
-    data.kpis.positivacao = vs.total.positMeta > 0 ? Math.round(vs.total.positivacao / vs.total.positMeta * 1000) / 10 : vs.total.positivacao;
+    // Sobrescrever KPIs com dados das novas planilhas agregadas
+    const vs = parseVendorStats(_rawCache.vendorStatsRaw);
+    const kilosTotal = parseKilosTotal(_rawCache.kilosRaw);
+    if (vs.total) {
+      data.kpis.totalFat    = vs.total.valorProduto;
+      data.kpis.metaGeral   = vs.total.metaFat;
+      data.kpis.pctMeta     = vs.total.metaFat > 0 ? Math.round(vs.total.valorProduto / vs.total.metaFat * 1000) / 10 : 0;
+      data.kpis.projecao    = vs.total.projecao;
+      data.kpis.positCount  = vs.total.positivacao;
+      data.kpis.positMeta   = vs.total.positMeta;
+      data.kpis.positivacao = vs.total.positMeta > 0 ? Math.round(vs.total.positivacao / vs.total.positMeta * 1000) / 10 : vs.total.positivacao;
+    }
+    data.kpis.totalKg = kilosTotal;
+
+    // Mesclar vendorStats por vendedor com vendorList calculado dos pedidos
+    const vsMap = {};
+    vs.vendors.forEach(v => { vsMap[v.name.toUpperCase()] = v; });
+    data.vendorList = data.vendorList.map(v => {
+      const sv = vsMap[v.name.toUpperCase()];
+      if (!sv) return v;
+      const pct = sv.metaFat > 0 ? Math.round(sv.valorProduto / sv.metaFat * 1000) / 10 : 0;
+      const projPct = sv.metaFat > 0 ? Math.round(sv.projecao / sv.metaFat * 100) : 0;
+      return { ...v, fat: sv.valorProduto, metaFat: sv.metaFat, pctMeta: pct,
+        proj: sv.projecao, projPct, positivacao: sv.positivacao, positMeta: sv.positMeta, sku: sv.sku };
+    }).sort((a, b) => b.fat - a.fat);
+
+    const periodLabel = computePeriodLabel(startVal, endVal);
+    renderDashboard(data, periodLabel);
+    renderHistorico(parseHistorico(_rawCache.historicoRaw));
+  } catch (err) {
+    document.getElementById('dataStatus').innerHTML = '❌ Erro de execução: ' + err.message;
+    document.getElementById('dataStatus').style.color = 'var(--red-primary)';
+    console.error(err);
   }
-  data.kpis.totalKg = kilosTotal;
-
-  // Mesclar vendorStats por vendedor com vendorList calculado dos pedidos
-  const vsMap = {};
-  vs.vendors.forEach(v => { vsMap[v.name.toUpperCase()] = v; });
-  data.vendorList = data.vendorList.map(v => {
-    const sv = vsMap[v.name.toUpperCase()];
-    if (!sv) return v;
-    const pct = sv.metaFat > 0 ? Math.round(sv.valorProduto / sv.metaFat * 1000) / 10 : 0;
-    const projPct = sv.metaFat > 0 ? Math.round(sv.projecao / sv.metaFat * 100) : 0;
-    return { ...v, fat: sv.valorProduto, metaFat: sv.metaFat, pctMeta: pct,
-      proj: sv.projecao, projPct, positivacao: sv.positivacao, positMeta: sv.positMeta, sku: sv.sku };
-  }).sort((a, b) => b.fat - a.fat);
-
-  const periodLabel = computePeriodLabel(startVal, endVal);
-  renderDashboard(data, periodLabel);
-  renderHistorico(parseHistorico(_rawCache.historicoRaw));
 }
 
 function setDefaultDateFilter(pedidosRaw) {
