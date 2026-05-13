@@ -364,13 +364,22 @@ function filterPedidosByDate(pedidosRaw, startVal, endVal) {
   });
 }
 
+function isCarryOverStart(startVal, endVal) {
+  if (!startVal || !endVal) return false;
+  const s = new Date(startVal + 'T00:00:00');
+  const nextDay = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1);
+  return nextDay.getDate() === 1 && s.getMonth() !== new Date(endVal + 'T00:00:00').getMonth();
+}
+
 function computePeriodLabel(startVal, endVal) {
   if (!startVal) return '';
   const s = new Date(startVal + 'T00:00:00');
   const e = endVal ? new Date(endVal + 'T00:00:00') : s;
-  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
-    const monthName = s.toLocaleDateString('pt-BR', {month:'long'});
-    return monthName.charAt(0).toUpperCase() + monthName.slice(1) + '/' + s.getFullYear();
+  // Quando start é último dia do mês anterior (carry-over), o mês de referência é o do end
+  const ref = isCarryOverStart(startVal, endVal) ? e : s;
+  if (ref.getMonth() === e.getMonth() && ref.getFullYear() === e.getFullYear()) {
+    const monthName = e.toLocaleDateString('pt-BR', {month:'long'});
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1) + '/' + e.getFullYear();
   }
   const fmt = d => ('0'+(d.getMonth()+1)).slice(-2) + '/' + d.getFullYear();
   return fmt(s) + ' – ' + fmt(e);
@@ -381,7 +390,9 @@ function applyAndRender() {
   const startVal = document.getElementById('filterStart').value;
   const endVal = document.getElementById('filterEnd').value;
   const filteredPedidos = filterPedidosByDate(_rawCache.pedidosRaw, startVal, endVal);
-  const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
+  // Para busca de metas: quando start é carry-over, o mês de referência é o do endVal
+  const metaMonthVal = isCarryOverStart(startVal, endVal) ? endVal : startVal;
+  const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, metaMonthVal);
   const periodLabel = computePeriodLabel(startVal, endVal);
   renderDashboard(data, periodLabel);
   renderHistorico(parseHistorico(_rawCache.historicoRaw));
@@ -397,8 +408,10 @@ function setDefaultDateFilter(pedidosRaw) {
   }
   const ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
   const y = ref.getFullYear(), m = ref.getMonth();
-  const firstDay = new Date(y, m, 1);
-  const lastDay = new Date(y, m + 1, 0);
+  // Último dia do mês anterior abre o ciclo (ex: 30/abr conta pra maio)
+  // Penúltimo dia do mês fecha o ciclo (último dia conta pro mês seguinte)
+  const firstDay = new Date(y, m, 0);      // último dia do mês anterior
+  const lastDay  = new Date(y, m + 1, -1); // penúltimo dia do mês atual
   const fmt = d => d.toISOString().split('T')[0];
   document.getElementById('filterStart').value = fmt(firstDay);
   document.getElementById('filterEnd').value = fmt(lastDay);
