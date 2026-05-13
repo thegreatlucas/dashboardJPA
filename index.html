@@ -190,6 +190,7 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
   <div id="dailySection"></div>
   <div id="rankingSection"></div>
   <div id="historicoSection"></div>
+  <div id="faturamentoDiaSection"></div>
   <div id="insightSection"></div>
 </div>
 
@@ -278,6 +279,16 @@ function fmtBRL(v) {
 function fmtKg(v) {
   if (v >= 1000) return (v/1000).toFixed(1).replace('.',',') + 't';
   return v.toFixed(0) + 'kg';
+}
+
+function getDiasUteis(year, month, untilDate) {
+  let count = 0;
+  const days = untilDate ? untilDate.getDate() : new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(year, month, i);
+    if (d.getDay() !== 0) count++; // Considera sábado como útil
+  }
+  return count;
 }
 
 async function fetchSheet(sheetKey) {
@@ -390,7 +401,7 @@ function applyAndRender() {
     const startVal = document.getElementById('filterStart').value;
     const endVal = document.getElementById('filterEnd').value;
     const filteredPedidos = filterPedidosByDate(_rawCache.pedidosRaw, startVal, endVal);
-    const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal);
+    const data = processData(filteredPedidos, _rawCache.metasRaw, _rawCache.carteiraRaw, _rawCache.abcRawMap, startVal, _rawCache.pedidosRaw);
 
     // Sobrescrever KPIs com dados das novas planilhas agregadas
     const vs = parseVendorStats(_rawCache.vendorStatsRaw);
@@ -450,7 +461,7 @@ function setDefaultDateFilter(pedidosRaw) {
   const y = ref.getFullYear(), m = ref.getMonth();
   const firstDay = new Date(y, m, 1);
   const lastDay  = new Date(y, m + 1, 0);
-  const fmt = d => d.toISOString().split('T')[0];
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('filterStart').value = fmt(firstDay);
   document.getElementById('filterEnd').value = fmt(lastDay);
 }
@@ -524,7 +535,7 @@ function findMetaCols(metasRaw, startVal) {
   };
 }
 
-function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
+function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal, unfilteredPedidos) {
   // --- cabeçalho pedidos ---
   const h = (pedidosRaw[0] || []).map(v => (v||'').trim().toUpperCase());
   const iDate = h.findIndex(v => v === 'DATA' || v === 'ENTREGA');
@@ -536,8 +547,8 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
   const iPos  = h.findIndex(v => v === 'POSITIVAÇÃO' || v === 'POSITIVACAO');
 
   // --- KPIs base ---
-  let totalFat = 0, totalKg = 0, positivacaoSet = new Set();
-  const entFat = {}, vendorMap = {}, clienteSet = new Set();
+  let totalFat = 0, totalKg = 0, positivacaoSet = new Set(), totalPedidos = 0;
+  const entFat = {}, vendorMap = {}, clienteSet = new Set(), fatDia = {};
 
   for (let i = 1; i < pedidosRaw.length; i++) {
     const r = pedidosRaw[i];
@@ -547,8 +558,17 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
     const vend = (r[iVend]||'').trim();
     const ent  = (r[iEnt]||'').trim().toUpperCase();
     const cli  = (r[iCli]||'').trim();
+    const strDate = (r[iDate]||'').trim();
     if (!vend || EXCLUDED.includes(vend)) continue;
+    
     totalFat += fat; totalKg += kg;
+    totalPedidos++;
+    
+    if (strDate) {
+      const iso = normDateToISO(strDate);
+      if (iso) fatDia[iso] = (fatDia[iso] || 0) + fat;
+    }
+
     if (cli) { clienteSet.add(cli); positivacaoSet.add(cli); }
     entFat[ent] = (entFat[ent]||0) + fat;
     if (!vendorMap[vend]) vendorMap[vend] = { name: vend, fat: 0, kg: 0, clientes: new Set(), pos: 0 };
@@ -599,7 +619,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
   }
 
   // --- RFM (últimos 90 dias por padrão) ---
-  const rfm = computeRFM(pedidosRaw, iDate, iFat2, iVend, iCli);
+  const rfm = computeRFM(unfilteredPedidos || pedidosRaw, iDate, iFat2, iVend, iCli);
 
   // --- ABC ---
   const abcByEnt = {};
@@ -616,8 +636,8 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal) {
   return {
     kpis: { totalFat, totalKg, metaGeral, pctMeta, projecao,
             positivacao: positivacaoSet.size, positCount: positivacaoSet.size, positMeta: 0,
-            clientes: clienteSet.size },
-    entFat, metaByEnt, vendorList, rfm, orphans, abcByEnt
+            clientes: clienteSet.size, totalPedidos },
+    entFat, metaByEnt, vendorList, rfm, orphans, abcByEnt, fatDia
   };
 }
 
@@ -767,7 +787,7 @@ function renderHistorico(data) {
 // RENDER DASHBOARD
 // ============================================================
 function renderDashboard(data, periodLabel) {
-  const { kpis, entFat, metaByEnt, vendorList, rfm, orphans, abcByEnt } = data;
+  const { kpis, entFat, metaByEnt, vendorList, rfm, orphans, abcByEnt, fatDia } = data;
   renderKPIs(kpis, periodLabel);
   renderProjection(kpis);
   renderRFM(rfm);
@@ -776,6 +796,7 @@ function renderDashboard(data, periodLabel) {
   renderABC(abcByEnt);
   renderDaily(vendorList, kpis);
   renderRanking(vendorList);
+  renderFaturamentoDia(fatDia, periodLabel);
   renderInsights(data);
   document.querySelectorAll('.animated').forEach((el,i) => {
     el.style.animationDelay = (i * 0.05) + 's';
@@ -783,48 +804,110 @@ function renderDashboard(data, periodLabel) {
 }
 
 // ============================================================
+// FATURAMENTO DIÁRIO
+// ============================================================
+function renderFaturamentoDia(fatDia, periodLabel) {
+  const sec = document.getElementById('faturamentoDiaSection');
+  if (!fatDia || Object.keys(fatDia).length === 0) { sec.innerHTML = ''; return; }
+
+  // Sort dates
+  const dates = Object.keys(fatDia).sort();
+  const maxFat = Math.max(...Object.values(fatDia), 1);
+  const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  const bars = dates.map(dStr => {
+    const fat = fatDia[dStr];
+    const pct = Math.round(fat / maxFat * 100);
+    const d = new Date(dStr + 'T00:00:00');
+    const diaSemana = DIAS_SEMANA[d.getDay()];
+    const label = \`\${d.getDate()}/\${d.getMonth()+1}<br><span style="font-size:8px;color:var(--text-muted)">\${diaSemana}</span>\`;
+    return \`<div class="bar-col">
+      <div class="bar-value">\${fmtBRL(fat)}</div>
+      <div class="bar" style="height:\${pct}%;background:linear-gradient(180deg,var(--blue-accent),var(--blue-dark))"></div>
+      <div class="bar-label">\${label}</div>
+    </div>\`;
+  }).join('');
+
+  sec.innerHTML = \`
+    <div class="section-title">📊 Faturamento Diário — \${periodLabel ? periodLabel : ''}</div>
+    <div class="chart-card animated">
+      <div class="chart-title">Faturamento por Dia</div>
+      <div class="bar-chart" style="overflow-x:auto;padding-bottom:50px;min-height:220px;">\${bars}</div>
+    </div>\`;
+}
+
+// ============================================================
 // KPIs
 // ============================================================
 function renderKPIs(kpis, periodLabel) {
   const sec = document.getElementById('kpiSection');
+  const d = new Date();
+  const diaUtil = getDiasUteis(d.getFullYear(), d.getMonth(), d);
+  const diasTotais = getDiasUteis(d.getFullYear(), d.getMonth(), null);
+  const diasRestantes = Math.max(1, diasTotais - diaUtil);
+  
   const pctColor = kpis.pctMeta >= 100 ? 'var(--green)' : kpis.pctMeta >= 80 ? 'var(--yellow)' : 'var(--red-primary)';
   const positPct = kpis.positMeta > 0 ? Math.round(kpis.positCount / kpis.positMeta * 100) : 0;
   const positColor = positPct >= 100 ? 'var(--green)' : positPct >= 75 ? 'var(--yellow)' : 'var(--red-primary)';
 
+  const missing = Math.max(0, kpis.metaGeral - kpis.totalFat);
+  const vendaDiariaNec = missing / diasRestantes;
+  const ticketMedio = kpis.totalPedidos > 0 ? kpis.totalFat / kpis.totalPedidos : 0;
+
   sec.innerHTML = `
-    <div class="section-title">📊 KPIs ${periodLabel ? '— ' + periodLabel : ''}</div>
+    <div class="section-title">📊 Indicadores Gerais — ${periodLabel ? periodLabel : ''} (até dia útil ${diaUtil})</div>
     <div class="kpi-grid">
       <div class="kpi-card animated">
         <div class="kpi-bar" style="width:100%;background:linear-gradient(90deg,var(--blue-primary),var(--blue-accent))"></div>
         <div class="kpi-label">Faturamento Total</div>
-        <div class="kpi-value" style="color:var(--blue-primary)">${fmtBRL(kpis.totalFat)}</div>
-        <div class="kpi-sub">Meta: ${fmtBRL(kpis.metaGeral)}</div>
-      </div>
-      <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:${Math.min(kpis.pctMeta,100)}%;background:${pctColor}"></div>
-        <div class="kpi-label">% da Meta</div>
-        <div class="kpi-value" style="color:${pctColor}">${kpis.pctMeta.toFixed(1)}%</div>
-        <div class="kpi-sub">${kpis.pctMeta >= 100 ? '✅ Meta atingida' : kpis.pctMeta >= 80 ? '⚠️ Quase lá' : '❌ Abaixo da meta'}</div>
-      </div>
-      <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:100%;background:var(--blue-accent)"></div>
-        <div class="kpi-label">Projeção Mensal</div>
-        <div class="kpi-value" style="color:var(--blue-accent)">${fmtBRL(kpis.projecao)}</div>
-        <div class="kpi-sub">Baseado no ritmo atual</div>
+        <div class="kpi-value">${fmtBRL(kpis.totalFat)}</div>
+        <div class="kpi-sub">
+          <span class="pill" style="background:var(--blue-light);color:var(--blue-dark)">${kpis.pctMeta}% da meta</span>
+          <span>Meta: ${fmtBRL(kpis.metaGeral)}</span>
+        </div>
       </div>
       <div class="kpi-card animated">
         <div class="kpi-bar" style="width:100%;background:var(--green)"></div>
-        <div class="kpi-label">Total de Kilos</div>
-        <div class="kpi-value" style="color:var(--green)">${fmtKg(kpis.totalKg)}</div>
-        <div class="kpi-sub">Volume expedido</div>
+        <div class="kpi-label">Kilos Vendidos</div>
+        <div class="kpi-value">${fmtKg(kpis.totalKg)}</div>
+        <div class="kpi-sub">
+          <span style="color:var(--green);font-weight:700">🛒 Volume consolidado</span>
+        </div>
       </div>
       <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:${Math.min(positPct,100)}%;background:${positColor}"></div>
+        <div class="kpi-bar" style="width:100%;background:var(--yellow)"></div>
         <div class="kpi-label">Positivação</div>
-        <div class="kpi-value" style="color:${positColor}">${kpis.positCount} <span style="font-size:14px">/ ${kpis.positMeta}</span></div>
-        <div class="kpi-sub">${positPct}% da meta de positivação</div>
+        <div class="kpi-value">${kpis.positCount} cl.</div>
+        <div class="kpi-sub">
+          <span class="pill pill-yellow" style="color:${positColor}">${positPct}%</span>
+          <span>Meta: ${kpis.positMeta}</span>
+        </div>
       </div>
-    </div>`;
+      <div class="kpi-card animated">
+        <div class="kpi-bar" style="width:100%;background:var(--orange)"></div>
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value">${fmtBRL(ticketMedio)}</div>
+        <div class="kpi-sub">
+          <span>Média por pedido</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section-title" style="margin-top: 10px;">🎯 Projeção de Fechamento</div>
+    <div class="kpi-grid">
+      <div class="kpi-card animated" style="background:var(--blue-dark);color:white;">
+        <div class="kpi-label" style="color:var(--blue-light)">Projeção Total</div>
+        <div class="kpi-value">${fmtBRL(kpis.projecao)}</div>
+      </div>
+      <div class="kpi-card animated" style="background:var(--card);">
+        <div class="kpi-label">Venda Diária Necessária</div>
+        <div class="kpi-value" style="color:var(--blue-primary)">${fmtBRL(vendaDiariaNec)}</div>
+        <div class="kpi-sub">
+          <span>Para bater a meta (${diasRestantes} dias úteis restantes)</span>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // ============================================================
@@ -832,39 +915,7 @@ function renderKPIs(kpis, periodLabel) {
 // ============================================================
 function renderProjection(kpis) {
   const sec = document.getElementById('projectionSection');
-  if (!kpis.metaGeral) { sec.innerHTML = ''; return; }
-  const hoje = new Date();
-  const diasMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate();
-  const diasRestantes = diasMes - hoje.getDate();
-  const faltaMeta = Math.max(0, kpis.metaGeral - kpis.totalFat);
-  const ritmoNecessario = diasRestantes > 0 ? faltaMeta / diasRestantes : 0;
-  const ritmoAtual = hoje.getDate() > 0 ? kpis.totalFat / hoje.getDate() : 0;
-
-  const projPct = kpis.metaGeral > 0 ? Math.round(kpis.projecao / kpis.metaGeral * 100) : 0;
-  const projColor = projPct >= 100 ? 'var(--green)' : projPct >= 80 ? 'var(--yellow)' : 'var(--red-primary)';
-
-  sec.innerHTML = `
-    <div class="section-title">🎯 Análise de Projeção</div>
-    <div class="kpi-grid">
-      <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:${Math.min(projPct,100)}%;background:${projColor}"></div>
-        <div class="kpi-label">Projeção vs Meta</div>
-        <div class="kpi-value" style="color:${projColor}">${projPct}%</div>
-        <div class="kpi-sub">Projeção: ${fmtBRL(kpis.projecao)}</div>
-      </div>
-      <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:100%;background:var(--orange)"></div>
-        <div class="kpi-label">Falta para Meta</div>
-        <div class="kpi-value" style="color:var(--orange)">${fmtBRL(faltaMeta)}</div>
-        <div class="kpi-sub">${diasRestantes} dias restantes</div>
-      </div>
-      <div class="kpi-card animated">
-        <div class="kpi-bar" style="width:100%;background:var(--blue-primary)"></div>
-        <div class="kpi-label">Ritmo Atual / dia</div>
-        <div class="kpi-value" style="color:var(--blue-primary)">${fmtBRL(ritmoAtual)}</div>
-        <div class="kpi-sub">Necessário: ${fmtBRL(ritmoNecessario)}/dia</div>
-      </div>
-    </div>`;
+  sec.innerHTML = '';
 }
 
 // ============================================================
