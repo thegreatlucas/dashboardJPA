@@ -1250,8 +1250,8 @@ function renderABC_fromRaw(abcRawMap) {
   renderABC(abcByEnt);
 }
 
-function getABC(_rawCache ? _rawCache.abcRawMap : {}) {
-  renderABC_fromRaw(ABC(_rawCache ? _rawCache.abcRawMap : {}));
+function getABC() {
+  renderABC_fromRaw(_rawCache ? _rawCache.abcRawMap : {});
 }
 
 // AUTO LOAD
