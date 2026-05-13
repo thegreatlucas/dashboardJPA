@@ -67,10 +67,10 @@ tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .chart-title{font-size:14px;font-weight:700;margin-bottom:16px}
 .bar-chart{display:flex;align-items:flex-end;gap:12px;height:180px;padding-bottom:42px;position:relative}
 .bar-chart::before{content:'';position:absolute;bottom:41px;left:0;right:0;height:1px;background:var(--border)}
-.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;position:relative;height:100%}
 .bar-col .bar{width:100%;max-width:50px;border-radius:6px 6px 0 0;transition:height 1s ease-out}
 .bar-col .bar-label{font-size:10px;color:var(--text-muted);font-weight:600;position:absolute;bottom:-38px;white-space:nowrap;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px}
-.bar-col .bar-value{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.bar-col .bar-value{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text-secondary);white-space:nowrap;margin-bottom:4px}
 .rfm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .rfm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;position:relative;transition:all 0.2s;box-shadow:var(--shadow-sm);cursor:default}
 .rfm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);z-index:10}
@@ -482,7 +482,7 @@ function parseVendorStats(raw) {
     const nameRaw = (r[0]||'').trim();
     if (!nameRaw) continue;
     const isTotal = nameRaw.toLowerCase() === 'total';
-    const name = isTotal ? 'Total' : nameRaw.replace(/^\d+-/, '').replace(' (ITA)', '').trim();
+    const name = isTotal ? 'Total' : nameRaw.replace(/^\d+-/, '').trim();
     const obj = { name,
       metaFat:      parseBRL(r[iMeta]),
       projecao:     parseBRL(r[iProj]),
@@ -619,7 +619,7 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal, unf
   }
 
   // --- RFM (últimos 90 dias por padrão) ---
-  const rfm = computeRFM(unfilteredPedidos || pedidosRaw, iDate, iFat2, iVend, iCli);
+  const rfm = computeRFM(unfilteredPedidos || pedidosRaw, iDate, iFat2, iVend, iCli, carteiraRaw);
 
   // --- ABC ---
   const abcByEnt = {};
@@ -641,9 +641,25 @@ function processData(pedidosRaw, metasRaw, carteiraRaw, abcRawMap, startVal, unf
   };
 }
 
-function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli) {
+function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli, carteiraRaw) {
   const hoje = new Date();
   const clienteData = {};
+  
+  // 1. Semear com a carteira (se existir) para incluir inativos
+  if (carteiraRaw && carteiraRaw.length > 1) {
+    const hC = (carteiraRaw[0]||[]).map(v => (v||'').trim().toUpperCase());
+    const iCC = hC.findIndex(v => v.includes('CLIENTE') || v.includes('RAZAO'));
+    if (iCC >= 0) {
+      for (let i = 1; i < carteiraRaw.length; i++) {
+        const cli = (carteiraRaw[i][iCC]||'').trim();
+        if (cli && !clienteData[cli]) {
+          clienteData[cli] = { dates: [], fat: 0, count: 0 };
+        }
+      }
+    }
+  }
+
+  // 2. Preencher com pedidos reais
   for (let i = 1; i < pedidosRaw.length; i++) {
     const r = pedidosRaw[i];
     if (!r[iDate] || !r[iCli]) continue;
@@ -653,19 +669,27 @@ function computeRFM(pedidosRaw, iDate, iFat, iVend, iCli) {
     const dateStr = normDateToISO(r[iDate]);
     const fat = iFat >= 0 ? parseBRL(r[iFat]) : 0;
     if (!clienteData[cli]) clienteData[cli] = { dates: [], fat: 0, count: 0 };
-    clienteData[cli].dates.push(dateStr);
+    if (dateStr) clienteData[cli].dates.push(dateStr);
     clienteData[cli].fat += fat;
     clienteData[cli].count++;
   }
+  
   const rfm = { ativos: [], prestesPerder: [], hibernando: [], perdidos: [] };
   const rfmDetails = {};
   for (const [cli, d] of Object.entries(clienteData)) {
-    d.dates.sort();
-    const lastDate = new Date(d.dates[d.dates.length - 1] + 'T00:00:00');
-    const diasSemCompra = Math.round((hoje - lastDate) / 86400000);
+    let diasSemCompra = 999; // Default for no purchases
+    let lastDate = '—';
+    if (d.dates.length > 0) {
+      d.dates.sort();
+      lastDate = d.dates[d.dates.length - 1];
+      const dObj = new Date(lastDate + 'T00:00:00');
+      if (!isNaN(dObj)) diasSemCompra = Math.round((hoje - dObj) / 86400000);
+    }
+    
     const freq = d.count;
-    const ticket = d.fat / d.count;
-    rfmDetails[cli] = { diasSemCompra, freq, ticket, fat: d.fat, lastDate: d.dates[d.dates.length-1] };
+    const ticket = d.count > 0 ? d.fat / d.count : 0;
+    rfmDetails[cli] = { diasSemCompra, freq, ticket, fat: d.fat, lastDate };
+    
     if (diasSemCompra <= 30) rfm.ativos.push(cli);
     else if (diasSemCompra <= 60) rfm.prestesPerder.push(cli);
     else if (diasSemCompra <= 90) rfm.hibernando.push(cli);
